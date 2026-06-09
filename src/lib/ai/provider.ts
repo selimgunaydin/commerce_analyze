@@ -352,6 +352,10 @@ function opportunityFromCompetitorGap(gap: Record<string, unknown>) {
   const impact = getImpact(gap.impact);
   const category = inferOpportunityCategory(area);
   const evidence = getStringArray(gap.evidence);
+  const suggestedImplementation = getString(
+    gap.recommendation,
+    implementationForFinding(area, "home")
+  );
 
   return {
     title: titleForFinding(area, "home", true),
@@ -367,7 +371,7 @@ function opportunityFromCompetitorGap(gap: Record<string, unknown>) {
     estimatedEffort: effortForFinding(area),
     expectedImpact: impact === "low" ? "medium" : impact,
     implementationComplexity: complexityForFinding(area),
-    suggestedImplementation: getString(gap.recommendation, `Ana sayfada eksik olan "${area}" paternini uygulanabilir bir bileşen veya içerik düzeniyle tamamlayın.`),
+    suggestedImplementation,
     acceptanceCriteria: acceptanceCriteriaForFinding(area, "home"),
     relatedCompetitorExamples: evidence.filter((item) => /competitor|rakip/i.test(item)).slice(0, 4)
   };
@@ -381,7 +385,7 @@ function opportunityFromDetector(detector: Record<string, unknown>, affectedPage
 
   return {
     title: titleForFinding(label, affectedPage, false),
-    description: `${affectedPage.toUpperCase()} audit kanıtı bu kontrolün geçmediğini gösteriyor: ${label}. Bulguyu somut bir sayfa iyileştirme işi olarak ele alın.`,
+    description: `${formatAffectedPage(affectedPage)} kanıtı "${label}" kontrolünü doğrulayamadı. ${implementationForFinding(label, affectedPage)}`,
     ...customerLensForFinding(label, affectedPage),
     evidence: evidence.slice(0, 8),
     affectedPages: [affectedPage],
@@ -397,9 +401,11 @@ function opportunityFromDetector(detector: Record<string, unknown>, affectedPage
 }
 
 function opportunityFromAccessibilityViolation(violation: Record<string, unknown>, affectedPage: string) {
-  const title = getString(violation.help, getString(violation.id, "Erişilebilirlik ihlali"));
+  const rawTitle = getString(violation.help, getString(violation.id, "Erişilebilirlik ihlali"));
+  const title = translateAuditTitle(rawTitle);
   const impact = getString(violation.impact, "moderate");
-  const evidence = [`${affectedPage.toUpperCase()} axe ihlali: ${getString(violation.id, title)}`];
+  const violationId = getString(violation.id, rawTitle);
+  const evidence = [`${affectedPage.toUpperCase()} axe ihlali: ${violationId}`];
 
   return {
     title: `Erişilebilirlik sorununu düzelt: ${title}`,
@@ -412,9 +418,9 @@ function opportunityFromAccessibilityViolation(violation: Record<string, unknown
     estimatedEffort: "1_day",
     expectedImpact: "high",
     implementationComplexity: "medium",
-    suggestedImplementation: `${affectedPage} markup yapısını güncelleyerek "${title}" axe ihlalinin tekrar görünmemesini sağlayın.`,
+    suggestedImplementation: `${formatAffectedPage(affectedPage)} markup yapısını güncelleyerek "${title}" axe ihlalinin tekrar görünmemesini sağlayın.`,
     acceptanceCriteria: [
-      `${affectedPage} sayfası "${getString(violation.id, title)}" axe ihlalini artık raporlamıyor.`,
+      `${formatAffectedPage(affectedPage)} "${violationId}" axe ihlalini artık raporlamıyor.`,
       "Klavye ve ekran okuyucu dostu semantik yapı korunuyor.",
       "Erişilebilirlik audit sonucu bu ihlal olmadan kaydediliyor."
     ],
@@ -423,9 +429,10 @@ function opportunityFromAccessibilityViolation(violation: Record<string, unknown
 }
 
 function opportunityFromLighthouse(lighthouseOpportunity: Record<string, unknown>, affectedPage: string) {
-  const title = getString(lighthouseOpportunity.title, "Lighthouse performans fırsatı");
+  const rawTitle = getString(lighthouseOpportunity.title, "Lighthouse performans fırsatı");
+  const title = translateAuditTitle(rawTitle);
   const evidence = [
-    `${affectedPage.toUpperCase()} Lighthouse fırsatı: ${getString(lighthouseOpportunity.id, title)}`,
+    `${affectedPage.toUpperCase()} Lighthouse fırsatı: ${getString(lighthouseOpportunity.id, rawTitle)}`,
     getString(lighthouseOpportunity.displayValue, "")
   ].filter(Boolean);
 
@@ -534,27 +541,101 @@ function fallbackOpportunity(index: number, evidence: string[]) {
 }
 
 function dedupeOpportunities(opportunities: Array<Record<string, unknown>>) {
-  const seen = new Set<string>();
+  const byKey = new Map<string, Record<string, unknown>>();
   const deduped: Array<Record<string, unknown>> = [];
 
   for (const opportunity of opportunities) {
-    const title = getString(opportunity.title, "");
-    const key = title.toLowerCase().replace(/\s+/g, " ").trim();
+    const key = opportunityClusterKey(opportunity);
 
-    if (!key || seen.has(key)) {
+    if (!key) {
       continue;
     }
 
-    seen.add(key);
-    deduped.push(opportunity);
+    const existing = byKey.get(key);
+
+    if (!existing) {
+      byKey.set(key, opportunity);
+      deduped.push(opportunity);
+      continue;
+    }
+
+    mergeOpportunity(existing, opportunity);
   }
 
   return deduped;
 }
 
+function mergeOpportunity(target: Record<string, unknown>, source: Record<string, unknown>) {
+  target.evidence = uniqueStrings([...getStringArray(target.evidence), ...getStringArray(source.evidence)]).slice(0, 12);
+  target.affectedPages = uniqueStrings([...getStringArray(target.affectedPages), ...getStringArray(source.affectedPages)]).slice(0, 12);
+  target.acceptanceCriteria = uniqueStrings([...getStringArray(target.acceptanceCriteria), ...getStringArray(source.acceptanceCriteria)]).slice(0, 8);
+  target.relatedCompetitorExamples = uniqueStrings([
+    ...getStringArray(target.relatedCompetitorExamples),
+    ...getStringArray(source.relatedCompetitorExamples)
+  ]).slice(0, 8);
+
+  if (priorityRank(getString(source.priority, "low")) > priorityRank(getString(target.priority, "low"))) {
+    target.priority = source.priority;
+  }
+
+  if (impactRank(getString(source.expectedImpact, "low")) > impactRank(getString(target.expectedImpact, "low"))) {
+    target.expectedImpact = source.expectedImpact;
+  }
+
+  if (getString(source.title, "").startsWith("Rakip açığını kapat") && !getString(target.title, "").startsWith("Rakip açığını kapat")) {
+    target.title = source.title;
+    target.description = source.description;
+  }
+}
+
+function opportunityClusterKey(opportunity: Record<string, unknown>) {
+  const pages = getStringArray(opportunity.affectedPages).sort().join("|") || "audit-wide";
+  const text = normalizedFinding(
+    [
+      getString(opportunity.title, ""),
+      getString(opportunity.description, ""),
+      getString(opportunity.category, ""),
+      ...getStringArray(opportunity.evidence)
+    ].join(" ")
+  );
+  const feature = opportunityFeatureKey(text);
+
+  return `${pages}:${feature}`;
+}
+
+function opportunityFeatureKey(text: string) {
+  if (/(hero|vitrin|ana gorsel)/.test(text)) return "hero";
+  if (/(h1|baslik|heading)/.test(text)) return "h1";
+  if (/(meta description|meta aciklama)/.test(text)) return "meta-description";
+  if (/(category|kategori)/.test(text)) return "category-shortcuts";
+  if (/(mobile menu|mobil menu|hamburger)/.test(text)) return "mobile-menu";
+  if (/(wishlist|favorite|favourite|favori|istek listesi|heart|kalp)/.test(text)) return "wishlist";
+  if (/(color contrast|color-contrast|kontrast)/.test(text)) return "color-contrast";
+  if (/(document title|document-title|title element)/.test(text)) return "document-title";
+  if (/(landmark|main landmark)/.test(text)) return "landmark";
+  if (/(server response|server-response-time|ttfb)/.test(text)) return "server-response-time";
+  if (/(render-blocking|render engelleyici)/.test(text)) return "render-blocking";
+  if (/(unused css|kullanilmayan css)/.test(text)) return "unused-css";
+
+  return text
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(" ")
+    .slice(0, 8)
+    .join("-");
+}
+
 function titleForFinding(finding: string, affectedPage: string, competitorBacked: boolean) {
   const text = finding.toLowerCase();
   const prefix = competitorBacked ? "Rakip açığını kapat: " : "";
+
+  if (/(hero|vitrin|ana görsel|ana gorsel)/.test(text)) {
+    return `${prefix}${affectedPage} sayfasında hero alanı ve ana CTA'yı netleştir`;
+  }
+
+  if (/(h1|başlık|baslik)/.test(text)) {
+    return `${prefix}${affectedPage} sayfasına anlamlı H1 başlığı ekle`;
+  }
 
   if (/(loyalty|reward|points|puan|sadakat|üyelik|uyelik|club|kulüp|kulup|bonus|cashback)/.test(text)) {
     return `${prefix}${affectedPage} sayfasında sadakat ve puan avantajını görünür yap`;
@@ -581,7 +662,7 @@ function titleForFinding(finding: string, affectedPage: string, competitorBacked
   }
 
   if (text.includes("mobile menu") || text.includes("mobil menü")) {
-    return `${prefix}${affectedPage} sayfasına güvenilir mobil menü sinyali ekle`;
+    return `${prefix}${affectedPage} sayfasında mobil menüyü erişilebilir ve kanıtlanabilir yap`;
   }
 
   if (text.includes("footer links") || text.includes("footer")) {
@@ -613,7 +694,7 @@ function titleForFinding(finding: string, affectedPage: string, competitorBacked
   }
 
   if (/(wishlist|favorite|favourite|favori|istek listesi)/.test(text)) {
-    return `${prefix}${affectedPage} sayfasında favori/istek listesi aksiyonu ekle`;
+    return `${prefix}${affectedPage} sayfasında favori aksiyonunu görünür ve izlenebilir yap`;
   }
 
   return `${prefix}${affectedPage} bulgusunu çöz: ${finding}`;
@@ -622,28 +703,40 @@ function titleForFinding(finding: string, affectedPage: string, competitorBacked
 function implementationForFinding(finding: string, affectedPage: string) {
   const text = finding.toLowerCase();
 
+  if (/(hero|vitrin|ana görsel|ana gorsel)/.test(text)) {
+    return `${formatAffectedPage(affectedPage)} ilk görünümünde kampanya veya kategori odağını anlatan hero alanı, tek birincil CTA ve mobilde okunaklı görsel/metin yerleşimi oluşturun.`;
+  }
+
+  if (/(h1|başlık|baslik)/.test(text)) {
+    return `${formatAffectedPage(affectedPage)} için sayfanın amacını anlatan tek, görünür ve SEO uyumlu H1 başlığı render edin.`;
+  }
+
   if (/(loyalty|reward|points|puan|sadakat|üyelik|uyelik|club|kulüp|kulup|bonus|cashback)/.test(text)) {
-    return `${affectedPage} sayfasında üyelik, puan kazanımı veya kulüp avantajını net bir mikro alanla gösterin; varsa hesap/kayıt akışına bağlayın.`;
+    return `${formatAffectedPage(affectedPage)} içinde üyelik, puan kazanımı veya kulüp avantajını net bir mikro alanla gösterin; varsa hesap/giriş akışına bağlayın.`;
   }
 
   if (/(sticky|sabit).*(cart|sepet)|sticky cart|sticky add to cart|sabit sepet/.test(text)) {
-    return `${affectedPage} ürün detayında mobil ve desktop için fiyat, varyant durumu ve sepete ekle aksiyonunu görünür tutan sticky CTA bileşeni ekleyin.`;
+    return `${formatAffectedPage(affectedPage)} ürün detayında mobil ve desktop için fiyat, varyant durumu ve sepete ekle aksiyonunu görünür tutan sticky CTA bileşeni ekleyin.`;
   }
 
   if (text.includes("cta")) {
-    return `${affectedPage} ana içeriğinin yakınına görsel olarak belirgin bir CTA ekleyin ve metnin bir sonraki aksiyonu açıkça anlattığını doğrulayın.`;
+    return `${formatAffectedPage(affectedPage)} ana içeriğinin yakınına görsel olarak belirgin bir CTA ekleyin ve metnin bir sonraki aksiyonu açıkça anlattığını doğrulayın.`;
   }
 
   if (text.includes("category") || text.includes("kategori")) {
-    return `${affectedPage} sayfasına 6-8 yüksek değerli hedef içeren responsive kategori kısayol bloğu ekleyin.`;
+    return `${formatAffectedPage(affectedPage)} içine 6-8 yüksek değerli hedef içeren responsive kategori kısayol bloğu ekleyin.`;
   }
 
   if (text.includes("search") || text.includes("arama")) {
-    return `${affectedPage} header alanında arama alanı veya arama tetikleyicisi gösterin ve mobilde erişilebilir tutun.`;
+    return `${formatAffectedPage(affectedPage)} header alanında arama alanı veya arama tetikleyicisi gösterin ve mobilde erişilebilir tutun.`;
+  }
+
+  if (text.includes("mobile menu") || text.includes("mobil menü")) {
+    return `${formatAffectedPage(affectedPage)} mobil viewport'ta menü tetikleyicisinin aria-label, aria-expanded ve görünür ikonla erişilebilir biçimde yakalandığını doğrulayın; varsa mevcut menüyü detector'ın okuyabileceği semantik sinyallerle güçlendirin.`;
   }
 
   if (text.includes("meta description") || text.includes("meta açıklama")) {
-    return `${affectedPage} için sayfaya özel kısa bir meta açıklama yazın ve document head içinde render edin.`;
+    return `${formatAffectedPage(affectedPage)} için sayfaya özel kısa bir meta açıklama yazın ve document head içinde render edin.`;
   }
 
   if (text.includes("alt")) {
@@ -651,18 +744,18 @@ function implementationForFinding(finding: string, affectedPage: string) {
   }
 
   if (/(shipping|delivery|return|teslimat|kargo|iade)/.test(text)) {
-    return `${affectedPage} sayfasında teslimat tarihi, ücretsiz kargo eşiği, iade süresi ve koşullarını satın alma kararına yakın konumda gösterin.`;
+    return `${formatAffectedPage(affectedPage)} içinde teslimat tarihi, ücretsiz kargo eşiği, iade süresi ve koşullarını satın alma kararına yakın konumda gösterin.`;
   }
 
   if (/(review|rating|yorum|değerlendirme|degerlendirme|star|yıldız|yildiz)/.test(text)) {
-    return `${affectedPage} sayfasına yorum, puan ortalaması veya müşteri memnuniyeti kanıtını ürün/karar alanına yakın ve erişilebilir şekilde ekleyin.`;
+    return `${formatAffectedPage(affectedPage)} içine yorum, puan ortalaması veya müşteri memnuniyeti kanıtını ürün/karar alanına yakın ve erişilebilir şekilde ekleyin.`;
   }
 
   if (/(wishlist|favorite|favourite|favori|istek listesi)/.test(text)) {
-    return `${affectedPage} ürün kartı veya ürün detayında favoriye ekleme aksiyonunu görünür, erişilebilir ve hesap akışıyla uyumlu hale getirin.`;
+    return `${formatAffectedPage(affectedPage)} ürün kartı veya ürün detayında favoriye ekleme aksiyonunu görünür, erişilebilir, event tracking'e uygun ve hesap akışıyla uyumlu hale getirin; özellik zaten varsa detector'ın yakalayacağı aria-label/title sinyallerini ekleyin.`;
   }
 
-  return `${affectedPage} sayfası uygulamasını "${finding}" bulgusunu doğrudan ele alacak ve tekrar auditte doğrulanabilecek şekilde güncelleyin.`;
+  return `${formatAffectedPage(affectedPage)} uygulamasını "${finding}" bulgusunu doğrudan ele alacak ve tekrar auditte doğrulanabilecek şekilde güncelleyin.`;
 }
 
 function acceptanceCriteriaForFinding(finding: string, affectedPage: string) {
@@ -681,6 +774,38 @@ function acceptanceCriteriaForFinding(finding: string, affectedPage: string) {
       `${affectedPage} sayfasında sepete ekle aksiyonu scroll sırasında görünür kalıyor.`,
       "Sticky CTA mobilde fiyat/varyant durumunu bozmayacak şekilde çalışıyor.",
       "Audit tekrarında sabit sepete ekle sinyali yakalanıyor."
+    ];
+  }
+
+  if (/(hero|vitrin|ana görsel|ana gorsel)/.test(text)) {
+    return [
+      `${formatAffectedPage(affectedPage)} ilk görünümünde hero mesajı, görseli ve birincil CTA birlikte görünüyor.`,
+      "CTA metni müşterinin sonraki aksiyonunu açıkça anlatıyor.",
+      "Mobil ve desktop ekran görüntülerinde hero alanı taşma veya örtüşme olmadan doğrulanıyor."
+    ];
+  }
+
+  if (/(h1|başlık|baslik)/.test(text)) {
+    return [
+      `${formatAffectedPage(affectedPage)} tek ve anlamlı H1 render ediyor.`,
+      "H1 sayfa amacıyla uyumlu, boş veya gizli değil.",
+      "Tekrar auditte H1 detector'ı geçiyor."
+    ];
+  }
+
+  if (text.includes("mobile menu") || text.includes("mobil menü")) {
+    return [
+      "Mobil viewport'ta menü tetikleyicisi görünür ve klavyeyle erişilebilir.",
+      "Menü butonunda erişilebilir ad ve açık/kapalı durum sinyali bulunuyor.",
+      "Tekrar auditte mobil menü sinyali kanıtla yakalanıyor."
+    ];
+  }
+
+  if (/(wishlist|favorite|favourite|favori|istek listesi)/.test(text)) {
+    return [
+      "Favori aksiyonu ilgili ürün kartı veya ürün detay alanında görünür.",
+      "Aksiyonun erişilebilir adı ve giriş/hesap akışı davranışı net.",
+      "Tekrar auditte favori sinyali kanıtla yakalanıyor."
     ];
   }
 
@@ -912,6 +1037,62 @@ function inferOpportunityCategory(finding: string) {
   }
 
   return "ux";
+}
+
+function translateAuditTitle(title: string) {
+  const normalized = normalizedFinding(title);
+  const translations: Array<[RegExp, string]> = [
+    [/reduce initial server response time|server response time/, "İlk sunucu yanıt süresini azalt"],
+    [/eliminate render-blocking resources|render-blocking resources/, "Render engelleyici kaynakları kaldır"],
+    [/reduce unused css|unused css/, "Kullanılmayan CSS'i azalt"],
+    [/elements must meet minimum color contrast ratio thresholds|color contrast/, "Metin ve arka plan kontrastını WCAG eşiğine getir"],
+    [/documents must have <title> element|document should have a title|document-title/, "Sayfaya anlamlı document title ekle"],
+    [/document should have one main landmark|landmark-one-main/, "Sayfada tek ana main landmark yapısı kullan"],
+    [/image elements do not have alt attributes|image alt/, "Görsel alt metinlerini tamamla"],
+    [/buttons must have discernible text|button name/, "Butonlara erişilebilir ad ekle"],
+    [/links must have discernible text|link name/, "Linklere anlaşılır metin ekle"]
+  ];
+
+  return translations.find(([pattern]) => pattern.test(normalized))?.[1] ?? title;
+}
+
+function formatAffectedPage(page: string) {
+  const labels: Record<string, string> = {
+    home: "Ana sayfa",
+    plp: "Listeleme sayfası",
+    pdp: "Ürün detay sayfası",
+    search: "Arama sayfası",
+    campaign: "Kampanya sayfası",
+    content: "İçerik sayfası",
+    "audit-wide": "Audit kapsamı"
+  };
+
+  return labels[page] ?? page;
+}
+
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function priorityRank(value: string) {
+  const ranks: Record<string, number> = {
+    low: 1,
+    medium: 2,
+    high: 3,
+    critical: 4
+  };
+
+  return ranks[value] ?? 0;
+}
+
+function impactRank(value: string) {
+  const ranks: Record<string, number> = {
+    low: 1,
+    medium: 2,
+    high: 3
+  };
+
+  return ranks[value] ?? 0;
 }
 
 function normalizedFinding(value: string) {

@@ -1075,7 +1075,7 @@ async function runFinalReportWriting(auditProjectId: string, runId: string) {
       projectId: auditProjectId
     },
     data: {
-      title: "AI Commerce Audit Raporu",
+      title: "Entysa E-Commerce Audit Raporu",
       executiveSummary: finalReport.executiveSummary,
       scorecard: toJson(finalReport.scorecard),
       content: toJson({

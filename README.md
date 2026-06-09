@@ -1,6 +1,6 @@
-# AI Commerce Audit Platform
+# Entysa E-Commerce Audit
 
-AI Commerce Audit Platform is a local-first ecommerce audit system. It crawls a target site with a real browser, captures desktop and mobile screenshots, extracts page evidence, runs deterministic ecommerce detectors, collects Lighthouse and axe accessibility data, compares manually supplied competitors, generates implementation-ready opportunities, and writes a final report.
+Entysa E-Commerce Audit is a local-first ecommerce audit system. It crawls a target site with a real browser, captures desktop and mobile screenshots, extracts page evidence, runs deterministic ecommerce detectors, collects Lighthouse and axe accessibility data, compares manually supplied competitors, generates implementation-ready opportunities, and writes a final report.
 
 The current implementation covers roadmap phases 1-12. Phase 13 future extensions are intentionally not implemented.
 

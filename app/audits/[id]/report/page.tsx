@@ -71,7 +71,7 @@ export default async function AuditReportPage({ params }: AuditReportPageProps) 
       <div className="border-b border-line pb-5">
         <Link href={`/audits/${audit.id}`} className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-ink">
           <ArrowLeft aria-hidden="true" size={16} />
-          Audit details
+          Audit detayları
         </Link>
         <h1 className="mt-4 text-2xl font-semibold text-ink">{audit.brandName ?? audit.normalizedUrl}</h1>
         <p className="mt-1 break-all text-sm text-muted">{audit.normalizedUrl}</p>

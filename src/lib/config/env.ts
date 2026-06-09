@@ -3,6 +3,9 @@ import { z } from "zod";
 const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
+  AUTH_SECRET: z.string().optional().default(""),
+  ENTYSA_ADMIN_EMAIL: z.string().optional().default(""),
+  ENTYSA_ADMIN_PASSWORD: z.string().optional().default(""),
   AUDIT_STATUS_STEP_DELAY_MS: z.coerce.number().int().positive().default(800),
   CRAWLER_TIMEOUT_MS: z.coerce.number().int().positive().default(45_000),
   CRAWLER_MAX_TEXT_LENGTH: z.coerce.number().int().positive().default(20_000),
@@ -35,6 +38,9 @@ export function getEnv() {
     cachedEnv = envSchema.parse({
       DATABASE_URL: process.env.DATABASE_URL,
       REDIS_URL: process.env.REDIS_URL,
+      AUTH_SECRET: process.env.AUTH_SECRET,
+      ENTYSA_ADMIN_EMAIL: process.env.ENTYSA_ADMIN_EMAIL,
+      ENTYSA_ADMIN_PASSWORD: process.env.ENTYSA_ADMIN_PASSWORD,
       AUDIT_STATUS_STEP_DELAY_MS: process.env.AUDIT_STATUS_STEP_DELAY_MS,
       CRAWLER_TIMEOUT_MS: process.env.CRAWLER_TIMEOUT_MS,
       CRAWLER_MAX_TEXT_LENGTH: process.env.CRAWLER_MAX_TEXT_LENGTH,

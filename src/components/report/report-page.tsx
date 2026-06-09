@@ -16,13 +16,16 @@ export function AuditReportView({
   const homePages = pages.filter((page) => page.pageType === "home");
   const plpPages = pages.filter((page) => page.pageType === "plp");
   const pdpPages = pages.filter((page) => page.pageType === "pdp");
+  const opportunities = dedupeOpportunities(finalReport.opportunities);
+  const quickWins = dedupeOpportunities(finalReport.quickWins);
+  const strategicProjects = dedupeOpportunities(finalReport.strategicProjects);
 
   return (
     <div className="space-y-6">
       <section className="rounded-md border border-line bg-white p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase text-muted">AI Commerce Audit Raporu</p>
+            <p className="text-xs font-semibold uppercase text-muted">Entysa E-Commerce Audit Raporu</p>
             <h1 className="mt-2 text-3xl font-semibold text-ink">Genel skor {Math.round(finalReport.scorecard.overall)}</h1>
             <p className="mt-3 max-w-4xl text-sm text-muted">{finalReport.executiveSummary}</p>
           </div>
@@ -76,7 +79,11 @@ export function AuditReportView({
       </ReportSection>
 
       <ReportSection title="Müşteri Gözüyle İçgörüler">
-        <OpportunityCustomerLens opportunities={finalReport.opportunities} />
+        <OpportunityCustomerLens opportunities={opportunities} />
+      </ReportSection>
+
+      <ReportSection title="Öncelikli Yol Haritası">
+        <OpportunitySummaryList quickWins={quickWins} strategicProjects={strategicProjects} />
       </ReportSection>
 
       <PageFindingSection title="Ana Sayfa Bulguları" pages={homePages} />
@@ -95,24 +102,8 @@ export function AuditReportView({
         <TechnicalSummary pages={pages} kind="accessibility" />
       </ReportSection>
 
-      <ReportSection title="Dönüşüm Fırsatları">
-        <OpportunityList opportunities={finalReport.opportunities.filter((opportunity) => opportunity.category === "conversion")} />
-      </ReportSection>
-
-      <ReportSection title="Sadakat ve Güven Fırsatları">
-        <OpportunityList opportunities={finalReport.opportunities.filter((opportunity) => opportunity.category === "retention" || opportunity.category === "trust")} />
-      </ReportSection>
-
-      <ReportSection title="Hızlı Kazanımlar">
-        <OpportunityList opportunities={finalReport.quickWins} />
-      </ReportSection>
-
-      <ReportSection title="Stratejik Projeler">
-        <OpportunityList opportunities={finalReport.strategicProjects} />
-      </ReportSection>
-
       <ReportSection title="Tam Görev Listesi">
-        <OpportunityList opportunities={finalReport.opportunities} />
+        <OpportunityList opportunities={opportunities} />
       </ReportSection>
 
       <ReportSection title="Kanıt Ekran Görüntüleri">
@@ -211,6 +202,42 @@ function OpportunityCustomerLens({ opportunities }: { opportunities: FinalAuditR
   );
 }
 
+function OpportunitySummaryList({
+  quickWins,
+  strategicProjects
+}: {
+  quickWins: FinalAuditReport["opportunities"];
+  strategicProjects: FinalAuditReport["opportunities"];
+}) {
+  const items = [
+    ...quickWins.slice(0, 6).map((opportunity) => ({ label: "Hızlı kazanım", opportunity })),
+    ...strategicProjects.slice(0, 4).map((opportunity) => ({ label: "Stratejik", opportunity }))
+  ];
+
+  if (items.length === 0) {
+    return <Empty>Öncelikli görev yok.</Empty>;
+  }
+
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {items.map(({ label, opportunity }) => (
+        <article key={`${label}-${opportunity.title}`} className="rounded-md border border-line bg-white p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-line bg-panel px-2 py-1 text-xs font-medium text-muted">{label}</span>
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-900">
+              {formatToken(opportunity.priority)}
+            </span>
+          </div>
+          <h3 className="mt-3 text-sm font-semibold text-ink">{opportunity.title}</h3>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            {formatToken(opportunity.estimatedEffort)} efor · {formatToken(opportunity.expectedImpact)} etki · {formatToken(opportunity.category)}
+          </p>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 function OpportunityList({ opportunities }: { opportunities: FinalAuditReport["opportunities"] }) {
   if (opportunities.length === 0) {
     return <Empty>Bu bölümde görev yok.</Empty>;
@@ -240,6 +267,16 @@ function OpportunityList({ opportunities }: { opportunities: FinalAuditReport["o
             <p className="mt-2 text-sm leading-6 text-emerald-950">{opportunity.customerProblem}</p>
             <p className="mt-2 text-sm leading-6 text-emerald-950">{opportunity.customerBenefit}</p>
             <p className="mt-2 text-xs leading-5 text-emerald-900">{opportunity.businessRationale}</p>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="rounded-md border border-line bg-panel px-3 py-3">
+              <p className="text-xs font-semibold uppercase text-muted">Geliştirici görevi</p>
+              <p className="mt-2 text-sm leading-6 text-ink">{opportunity.suggestedImplementation}</p>
+            </div>
+            <div className="rounded-md border border-line bg-panel px-3 py-3">
+              <p className="text-xs font-semibold uppercase text-muted">PM kararı</p>
+              <p className="mt-2 text-sm leading-6 text-ink">{pmDecisionForOpportunity(opportunity)}</p>
+            </div>
           </div>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <TextList label="Kanıt" items={opportunity.evidence} />
@@ -313,6 +350,105 @@ function storageUrl(path: string) {
   }
 
   return `/storage/${path}`;
+}
+
+function dedupeOpportunities(opportunities: FinalAuditReport["opportunities"]) {
+  const byKey = new Map<string, FinalAuditReport["opportunities"][number]>();
+  const deduped: FinalAuditReport["opportunities"] = [];
+
+  for (const opportunity of opportunities) {
+    const key = opportunityClusterKey(opportunity);
+    const existing = byKey.get(key);
+
+    if (!existing) {
+      byKey.set(key, opportunity);
+      deduped.push(opportunity);
+      continue;
+    }
+
+    existing.evidence = uniqueStrings([...existing.evidence, ...opportunity.evidence]).slice(0, 12);
+    existing.affectedPages = uniqueStrings([...existing.affectedPages, ...opportunity.affectedPages]).slice(0, 12);
+    existing.acceptanceCriteria = uniqueStrings([...existing.acceptanceCriteria, ...opportunity.acceptanceCriteria]).slice(0, 8);
+  }
+
+  return deduped;
+}
+
+function opportunityClusterKey(opportunity: FinalAuditReport["opportunities"][number]) {
+  const pages = [...opportunity.affectedPages].sort().join("|") || "audit-wide";
+  const text = normalizeText([opportunity.title, opportunity.description, opportunity.category, ...opportunity.evidence].join(" "));
+
+  return `${pages}:${findingFeatureKey(text)}`;
+}
+
+function pmDecisionForOpportunity(opportunity: FinalAuditReport["opportunities"][number]) {
+  const pageScope = opportunity.affectedPages.map(formatPageType).join(", ");
+
+  if (opportunity.category === "performance") {
+    return `${pageScope} için hedeflenecek performans metriğini ve kabul edilebilir teknik borç sınırını belirle.`;
+  }
+
+  if (opportunity.category === "accessibility") {
+    return `${pageScope} erişilebilirlik düzeltmesini yayın önceliğine al ve tekrar audit sonucu olmadan kapatma.`;
+  }
+
+  if (opportunity.relatedCompetitorExamples.length > 0 || opportunity.title.startsWith("Rakip açığını kapat")) {
+    return `${pageScope} için rakip paterninin marka deneyimine uyarlanacak kapsamını ve başarı metriğini netleştir.`;
+  }
+
+  return `${pageScope} kapsamını, başarı metriğini ve doğrulama auditini netleştir.`;
+}
+
+function findingFeatureKey(text: string) {
+  if (/(hero|vitrin|ana gorsel)/.test(text)) return "hero";
+  if (/(h1|baslik|heading)/.test(text)) return "h1";
+  if (/(meta description|meta aciklama)/.test(text)) return "meta-description";
+  if (/(category|kategori)/.test(text)) return "category-shortcuts";
+  if (/(mobile menu|mobil menu|hamburger)/.test(text)) return "mobile-menu";
+  if (/(wishlist|favorite|favourite|favori|istek listesi|heart|kalp)/.test(text)) return "wishlist";
+  if (/(color contrast|color-contrast|kontrast)/.test(text)) return "color-contrast";
+  if (/(document title|document-title|title element)/.test(text)) return "document-title";
+  if (/(landmark|main landmark)/.test(text)) return "landmark";
+  if (/(server response|server-response-time|ttfb)/.test(text)) return "server-response-time";
+  if (/(render-blocking|render engelleyici)/.test(text)) return "render-blocking";
+  if (/(unused css|kullanilmayan css)/.test(text)) return "unused-css";
+
+  return text
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(" ")
+    .slice(0, 8)
+    .join("-");
+}
+
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function normalizeText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/ı/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c");
+}
+
+function formatPageType(value: string) {
+  const labels: Record<string, string> = {
+    home: "Ana sayfa",
+    plp: "Listeleme",
+    pdp: "Ürün detay",
+    search: "Arama",
+    campaign: "Kampanya",
+    content: "İçerik",
+    unknown: "Bilinmeyen",
+    "audit-wide": "Audit kapsamı"
+  };
+
+  return labels[value] ?? value.toUpperCase();
 }
 
 function scoreClass(value: number) {

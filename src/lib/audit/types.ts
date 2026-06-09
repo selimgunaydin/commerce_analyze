@@ -20,6 +20,24 @@ export type ExtractedPageData = {
     type?: string;
     ariaLabel?: string;
   }[];
+  elements?: {
+    tag: string;
+    text: string;
+    ariaLabel?: string;
+    ariaControls?: string;
+    ariaExpanded?: string;
+    title?: string;
+    role?: string;
+    id?: string;
+    className?: string;
+    href?: string;
+    type?: string;
+    name?: string;
+    dataTestId?: string;
+    dataAction?: string;
+    dataToggle?: string;
+    dataTarget?: string;
+  }[];
   forms: {
     action?: string;
     method?: string;

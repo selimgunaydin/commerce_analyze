@@ -30,7 +30,7 @@ export function buildFinalAuditReportDraft(params: {
 }) {
   const scorecard = getScorecard(params.report?.scorecard) ?? fallbackScorecard;
   const siteProfile = getSiteProfile(params.project.siteProfile, params.project);
-  const opportunities = params.project.opportunities.map(toAuditOpportunity);
+  const opportunities = dedupeAuditOpportunities(params.project.opportunities.map(toAuditOpportunity));
   const quickWins = opportunities.filter(isQuickWinOpportunity);
   const strategicProjects = opportunities.filter(isStrategicProjectOpportunity);
   const competitorComparison = getCompetitorComparison(params.report?.content);
@@ -75,7 +75,7 @@ export function buildFinalAuditReportDraft(params: {
 }
 
 export function preserveStoredOpportunities(report: FinalAuditReport, opportunities: Opportunity[]) {
-  const storedOpportunities = opportunities.map(toAuditOpportunity);
+  const storedOpportunities = dedupeAuditOpportunities(opportunities.map(toAuditOpportunity));
 
   return finalAuditReportSchema.parse({
     ...report,
@@ -86,8 +86,12 @@ export function preserveStoredOpportunities(report: FinalAuditReport, opportunit
 }
 
 export function buildMarkdownReport(report: FinalAuditReport) {
+  const opportunities = dedupeAuditOpportunities(report.opportunities);
+  const quickWins = dedupeAuditOpportunities(report.quickWins);
+  const strategicProjects = dedupeAuditOpportunities(report.strategicProjects);
+
   return [
-    "# AI Commerce Audit Raporu",
+    "# Entysa E-Commerce Audit Raporu",
     "",
     "## Yönetici Özeti",
     "",
@@ -107,15 +111,15 @@ export function buildMarkdownReport(report: FinalAuditReport) {
     "",
     "## Hızlı Kazanımlar",
     "",
-    opportunityMarkdown(report.quickWins),
+    opportunitySummaryMarkdown(quickWins),
     "",
     "## Stratejik Projeler",
     "",
-    opportunityMarkdown(report.strategicProjects),
+    opportunitySummaryMarkdown(strategicProjects),
     "",
     "## Tüm Fırsatlar",
     "",
-    opportunityMarkdown(report.opportunities),
+    opportunityMarkdown(opportunities),
     "",
     "## Teknik Ek",
     "",
@@ -232,11 +236,11 @@ function buildTopFindings(params: {
 
   for (const page of params.pages) {
     for (const detector of getDetectorResults(page.detectorResults).filter((item) => !item.passed && item.severity !== "info").slice(0, 3)) {
-      findings.push(`${formatPageType(page.pageType)} sayfasında dikkat isteyen kontrol: ${detector.label}.`);
+      findings.push(detectorFinding(page.pageType, detector));
     }
   }
 
-  return Array.from(new Set(findings)).slice(0, 10);
+  return dedupeFindings(findings).slice(0, 10);
 }
 
 function getScorecard(value: unknown): AuditScorecard | null {
@@ -306,12 +310,12 @@ function getCompetitorComparison(value: unknown): CompetitorComparison | null {
   return comparison as CompetitorComparison;
 }
 
-function getDetectorResults(value: unknown): Array<{ label: string; passed: boolean; severity: string }> {
+function getDetectorResults(value: unknown): Array<{ label: string; passed: boolean; severity: string; confidence?: number }> {
   if (!Array.isArray(value)) {
     return [];
   }
 
-  return value.filter((item): item is { label: string; passed: boolean; severity: string } => {
+  return value.filter((item): item is { label: string; passed: boolean; severity: string; confidence?: number } => {
     return (
       Boolean(item) &&
       typeof item === "object" &&
@@ -355,15 +359,199 @@ function opportunityMarkdown(opportunities: AuditOpportunity[]) {
         `- Efor: ${formatToken(opportunity.estimatedEffort)}`,
         `- Etki: ${formatToken(opportunity.expectedImpact)}`,
         `- Karmaşıklık: ${formatToken(opportunity.implementationComplexity)}`,
-        `- Kanıt: ${opportunity.evidence.join(" | ")}`,
-        `- Kabul Kriterleri: ${opportunity.acceptanceCriteria.join(" | ")}`
+        `- Geliştirici görevi: ${opportunity.suggestedImplementation}`,
+        `- PM kararı: ${pmDecisionForOpportunity(opportunity)}`,
+        "",
+        "**Kanıt**",
+        "",
+        listMarkdown(opportunity.evidence),
+        "",
+        "**Kabul Kriterleri**",
+        "",
+        listMarkdown(opportunity.acceptanceCriteria)
       ].join("\n")
     )
     .join("\n\n");
 }
 
+function opportunitySummaryMarkdown(opportunities: AuditOpportunity[]) {
+  if (opportunities.length === 0) {
+    return "- Yok.";
+  }
+
+  return opportunities
+    .map(
+      (opportunity) =>
+        `- ${opportunity.title} — Öncelik: ${formatToken(opportunity.priority)}, Efor: ${formatToken(opportunity.estimatedEffort)}, Etki: ${formatToken(opportunity.expectedImpact)}`
+    )
+    .join("\n");
+}
+
 function listMarkdown(items: string[]) {
   return items.length > 0 ? items.map((item) => `- ${item}`).join("\n") : "- Yok.";
+}
+
+function dedupeAuditOpportunities(opportunities: AuditOpportunity[]) {
+  const byKey = new Map<string, AuditOpportunity>();
+  const deduped: AuditOpportunity[] = [];
+
+  for (const opportunity of opportunities) {
+    const key = opportunityClusterKey(opportunity);
+    const existing = byKey.get(key);
+
+    if (!existing) {
+      byKey.set(key, opportunity);
+      deduped.push(opportunity);
+      continue;
+    }
+
+    existing.evidence = uniqueStrings([...existing.evidence, ...opportunity.evidence]).slice(0, 12);
+    existing.affectedPages = uniqueStrings([...existing.affectedPages, ...opportunity.affectedPages]).slice(0, 12);
+    existing.acceptanceCriteria = uniqueStrings([...existing.acceptanceCriteria, ...opportunity.acceptanceCriteria]).slice(0, 8);
+    existing.relatedCompetitorExamples = uniqueStrings([...existing.relatedCompetitorExamples, ...opportunity.relatedCompetitorExamples]).slice(0, 8);
+
+    if (priorityRank(opportunity.priority) > priorityRank(existing.priority)) {
+      existing.priority = opportunity.priority;
+    }
+
+    if (impactRank(opportunity.expectedImpact) > impactRank(existing.expectedImpact)) {
+      existing.expectedImpact = opportunity.expectedImpact;
+    }
+
+    if (opportunity.title.startsWith("Rakip açığını kapat") && !existing.title.startsWith("Rakip açığını kapat")) {
+      existing.title = opportunity.title;
+      existing.description = opportunity.description;
+      existing.suggestedImplementation = opportunity.suggestedImplementation;
+    }
+  }
+
+  return deduped;
+}
+
+function opportunityClusterKey(opportunity: AuditOpportunity) {
+  const pages = [...opportunity.affectedPages].sort().join("|") || "audit-wide";
+  const text = normalizeText(
+    [
+      opportunity.title,
+      opportunity.description,
+      opportunity.category,
+      opportunity.suggestedImplementation,
+      ...opportunity.evidence
+    ].join(" ")
+  );
+
+  return `${pages}:${findingFeatureKey(text)}`;
+}
+
+function detectorFinding(
+  pageType: string,
+  detector: {
+    label: string;
+    confidence?: number;
+  }
+) {
+  const label = detector.label.replace(/\s+var\.?$/i, "").trim();
+  const page = formatPageType(pageType);
+
+  if (typeof detector.confidence === "number" && detector.confidence < 0.7) {
+    return `${page} sayfasında "${label}" düşük güvenle doğrulanamadı; manuel kanıtla kontrol edilmeli.`;
+  }
+
+  return `${page} sayfasında "${label}" kontrolü geçmedi.`;
+}
+
+function dedupeFindings(findings: string[]) {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const finding of findings) {
+    const key = findingFeatureKey(normalizeText(finding));
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    result.push(finding);
+  }
+
+  return result;
+}
+
+function findingFeatureKey(text: string) {
+  if (/(hero|vitrin|ana gorsel)/.test(text)) return "hero";
+  if (/(h1|baslik|heading)/.test(text)) return "h1";
+  if (/(meta description|meta aciklama)/.test(text)) return "meta-description";
+  if (/(category|kategori)/.test(text)) return "category-shortcuts";
+  if (/(mobile menu|mobil menu|hamburger)/.test(text)) return "mobile-menu";
+  if (/(wishlist|favorite|favourite|favori|istek listesi|heart|kalp)/.test(text)) return "wishlist";
+  if (/(color contrast|color-contrast|kontrast)/.test(text)) return "color-contrast";
+  if (/(document title|document-title|title element)/.test(text)) return "document-title";
+  if (/(landmark|main landmark)/.test(text)) return "landmark";
+  if (/(server response|server-response-time|ttfb)/.test(text)) return "server-response-time";
+  if (/(render-blocking|render engelleyici)/.test(text)) return "render-blocking";
+  if (/(unused css|kullanilmayan css)/.test(text)) return "unused-css";
+
+  return text
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(" ")
+    .slice(0, 8)
+    .join("-");
+}
+
+function pmDecisionForOpportunity(opportunity: AuditOpportunity) {
+  const pageScope = opportunity.affectedPages.map(formatPageType).join(", ");
+
+  if (opportunity.category === "performance") {
+    return `${pageScope} kapsamındaki performans işinin bu sprintte hedeflenecek metrik eşiğini ve kabul edilebilir teknik borç sınırını belirle.`;
+  }
+
+  if (opportunity.category === "accessibility") {
+    return `${pageScope} kapsamındaki erişilebilirlik düzeltmesini yayın önceliğine al ve tekrar audit sonucu olmadan kapatma.`;
+  }
+
+  if (opportunity.relatedCompetitorExamples.length > 0 || opportunity.title.startsWith("Rakip açığını kapat")) {
+    return `${pageScope} için rakipte görülen paternin marka deneyimine uyarlanacak kapsamını ve başarı metriğini netleştir.`;
+  }
+
+  return `${pageScope} kapsamını, başarı metriğini ve bu görevin hangi audit tekrarında doğrulanacağını netleştir.`;
+}
+
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function normalizeText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/ı/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c");
+}
+
+function priorityRank(value: string) {
+  const ranks: Record<string, number> = {
+    low: 1,
+    medium: 2,
+    high: 3,
+    critical: 4
+  };
+
+  return ranks[value] ?? 0;
+}
+
+function impactRank(value: string) {
+  const ranks: Record<string, number> = {
+    low: 1,
+    medium: 2,
+    high: 3
+  };
+
+  return ranks[value] ?? 0;
 }
 
 function getStringArray(value: unknown) {

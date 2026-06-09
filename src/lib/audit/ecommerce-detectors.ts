@@ -15,9 +15,45 @@ type DetectorContext = {
   text: string;
   buttonText: string;
   linkText: string;
+  elementText: string;
   fieldText: string;
   priceCount: number;
 };
+
+const wishlistKeywords = [
+  "wishlist",
+  "wish list",
+  "wish-list",
+  "favorite",
+  "favourite",
+  "favori",
+  "istek listesi",
+  "istek-listesi",
+  "add-to-wishlist",
+  "add to wishlist",
+  "heart",
+  "kalp",
+  "begeni",
+  "beğeni"
+];
+
+const mobileMenuKeywords = [
+  "mobile menu",
+  "mobil menu",
+  "mobil menü",
+  "hamburger",
+  "burger",
+  "menu toggle",
+  "menü",
+  "menu",
+  "navbar-toggler",
+  "nav-toggler",
+  "drawer",
+  "offcanvas",
+  "side menu",
+  "yan menu",
+  "yan menü"
+];
 
 export function runEcommerceDetectors(params: {
   pageType: PageType;
@@ -148,10 +184,10 @@ function getHomepageDetectors(context: DetectorContext): DetectorResult[] {
     result({
       key: "homepage_has_mobile_menu_signal",
       label: "Ana sayfada mobil menü sinyali var",
-      passed: hasAny(`${context.buttonText} ${context.linkText}`, ["menu", "hamburger", "navigation", "nav"]),
-      confidence: 0.45,
+      passed: hasMobileMenuSignal(context),
+      confidence: hasMobileMenuSignal(context) ? 0.78 : 0.45,
       severity: "low",
-      evidence: findButtonOrLinkEvidence(context, ["menu", "hamburger", "navigation", "nav"])
+      evidence: featureEvidence(context, mobileMenuKeywords)
     }),
     result({
       key: "homepage_has_footer_links",
@@ -194,7 +230,7 @@ function getPlpDetectors(context: DetectorContext): DetectorResult[] {
     booleanTextDetector(context, "plp_has_filter", "Listeleme sayfasında filtreleme var", ["filter", "filtre", "refine"], "medium"),
     booleanTextDetector(context, "plp_has_sort", "Listeleme sayfasında sıralama var", ["sort", "sirala", "sırala"], "medium"),
     booleanTextDetector(context, "plp_has_quick_add", "Listeleme sayfasında hızlı sepete ekleme sinyali var", ["quick add", "quick cart", "hizli sepet", "hızlı sepet", "sepete ekle"], "medium"),
-    booleanTextDetector(context, "plp_has_wishlist", "Listeleme sayfasında favori/istek listesi sinyali var", ["wishlist", "favorite", "favourite", "favori", "istek listesi"], "low"),
+    booleanFeatureDetector(context, "plp_has_wishlist", "Listeleme sayfasında favori/istek listesi sinyali var", wishlistKeywords, "low"),
     booleanTextDetector(context, "plp_has_rating_review", "Listeleme sayfasında yorum veya puan sinyali var", ["rating", "review", "yorum", "star", "yildiz", "yıldız"], "low"),
     booleanTextDetector(context, "plp_has_variant_signal", "Listeleme sayfasında renk/beden varyant sinyali var", ["color", "renk", "size", "beden", "variant"], "low"),
     booleanTextDetector(context, "plp_has_pagination", "Listeleme sayfasında sayfalama veya daha fazla yükleme var", ["pagination", "next", "previous", "load more", "daha fazla"], "low"),
@@ -261,7 +297,7 @@ function getPdpDetectors(context: DetectorContext): DetectorResult[] {
       evidence: [`Görsel sayısı: ${context.extracted.images.length}`]
     }),
     booleanTextDetector(context, "pdp_has_review_rating", "Ürün detay sayfasında yorum veya puan var", ["rating", "review", "yorum", "star", "yildiz", "yıldız"], "low"),
-    booleanTextDetector(context, "pdp_has_wishlist", "Ürün detay sayfasında favori veya istek listesi sinyali var", ["wishlist", "favorite", "favourite", "favori", "istek listesi"], "low"),
+    booleanFeatureDetector(context, "pdp_has_wishlist", "Ürün detay sayfasında favori veya istek listesi sinyali var", wishlistKeywords, "low"),
     booleanTextDetector(context, "pdp_has_related_products", "Ürün detay sayfasında benzer ürünler var", ["related products", "benzer urunler", "benzer ürünler", "you may also like"], "low"),
     booleanTextDetector(context, "pdp_has_sticky_add_to_cart", "Ürün detay sayfasında sabit sepete ekle sinyali var", ["sticky add to cart", "sticky cart", "sabit sepet"], "medium")
   ];
@@ -375,6 +411,7 @@ function getTechnicalDetectors(context: DetectorContext): DetectorResult[] {
 function createContext(pageType: PageType, extracted: ExtractedPageData): DetectorContext {
   const buttonText = extracted.buttons.map((button) => `${button.text} ${button.ariaLabel ?? ""}`).join(" ");
   const linkText = extracted.links.map((link) => `${link.text} ${link.href}`).join(" ");
+  const elementText = (extracted.elements ?? []).map(elementSignalText).join(" ");
   const fieldText = extracted.forms
     .flatMap((form) => form.fields.map((field) => `${field.name ?? ""} ${field.type ?? ""} ${field.placeholder ?? ""} ${field.label ?? ""}`))
     .join(" ");
@@ -387,6 +424,7 @@ function createContext(pageType: PageType, extracted: ExtractedPageData): Detect
       extracted.headings.h2.join(" "),
       buttonText,
       linkText,
+      elementText,
       fieldText
     ].join(" ")
   );
@@ -397,6 +435,7 @@ function createContext(pageType: PageType, extracted: ExtractedPageData): Detect
     text,
     buttonText: normalize(buttonText),
     linkText: normalize(linkText),
+    elementText: normalize(elementText),
     fieldText: normalize(fieldText),
     priceCount: countMatches(text, /(?:[$€£₺]\s?\d|\d+(?:[.,]\d{2})?\s?(?:tl|try|usd|eur))/gi)
   };
@@ -419,6 +458,25 @@ function booleanTextDetector(
   });
 }
 
+function booleanFeatureDetector(
+  context: DetectorContext,
+  key: string,
+  label: string,
+  keywords: string[],
+  severity: DetectorResult["severity"]
+) {
+  const evidence = featureEvidence(context, keywords);
+
+  return result({
+    key,
+    label,
+    passed: evidence.length > 0 || hasAny(context.text, keywords),
+    confidence: evidence.length > 0 ? 0.82 : 0.62,
+    severity,
+    evidence: evidence.length > 0 ? evidence : matchEvidence(context.text, keywords)
+  });
+}
+
 function result(params: DetectorResult): DetectorResult {
   return {
     ...params,
@@ -438,6 +496,22 @@ function findButtonOrLinkEvidence(context: DetectorContext, keywords: string[]) 
       .map((button) => `Buton: ${truncateEvidence(button.text || button.ariaLabel || "")}`),
     ...findLinkEvidence(context, keywords)
   ].slice(0, 4);
+}
+
+function featureEvidence(context: DetectorContext, keywords: string[]) {
+  return [
+    ...findButtonOrLinkEvidence(context, keywords),
+    ...(context.extracted.elements ?? [])
+      .filter((element) => hasAny(elementSignalText(element), keywords))
+      .map((element) => `Öğe: ${truncateEvidence(elementSignalText(element))}`)
+  ].slice(0, 5);
+}
+
+function hasMobileMenuSignal(context: DetectorContext) {
+  return (
+    featureEvidence(context, mobileMenuKeywords).length > 0 ||
+    hasAny(context.elementText, ["aria-expanded", "aria-controls", "navbar-toggler", "offcanvas", "drawer"])
+  );
 }
 
 function findLinkEvidence(context: DetectorContext, keywords: string[]) {
@@ -466,6 +540,29 @@ function hasSearchInput(context: DetectorContext) {
 function hasAny(text: string, keywords: string[]) {
   const normalizedText = normalize(text);
   return keywords.some((keyword) => normalizedText.includes(normalize(keyword)));
+}
+
+function elementSignalText(element: NonNullable<ExtractedPageData["elements"]>[number]) {
+  return [
+    element.tag,
+    element.text,
+    element.ariaLabel,
+    element.ariaControls ? `aria-controls ${element.ariaControls}` : undefined,
+    element.ariaExpanded ? `aria-expanded ${element.ariaExpanded}` : undefined,
+    element.title,
+    element.role,
+    element.id,
+    element.className,
+    element.href,
+    element.type,
+    element.name,
+    element.dataTestId,
+    element.dataAction,
+    element.dataToggle,
+    element.dataTarget
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function normalize(value: string) {

@@ -17,6 +17,36 @@ export async function extractPageData(page: Page, telemetry: PageTelemetry): Pro
       const value = element.getAttribute(name);
       return value && value.trim() ? value.trim() : undefined;
     };
+    const classFrom = (element) => {
+      if (typeof element.className === "string") {
+        return element.className.trim() || undefined;
+      }
+
+      return attrFrom(element, "class");
+    };
+    const compactElement = (element) => {
+      const text = element instanceof HTMLInputElement ? element.value.trim() : textFrom(element);
+      const nestedTitle = element.querySelector("title");
+
+      return {
+        tag: element.tagName.toLowerCase(),
+        text,
+        ariaLabel: attrFrom(element, "aria-label"),
+        ariaControls: attrFrom(element, "aria-controls"),
+        ariaExpanded: attrFrom(element, "aria-expanded"),
+        title: attrFrom(element, "title") || textFrom(nestedTitle),
+        role: attrFrom(element, "role"),
+        id: attrFrom(element, "id"),
+        className: classFrom(element),
+        href: element instanceof HTMLAnchorElement ? element.href : undefined,
+        type: attrFrom(element, "type"),
+        name: attrFrom(element, "name"),
+        dataTestId: attrFrom(element, "data-testid") || attrFrom(element, "data-test-id"),
+        dataAction: attrFrom(element, "data-action"),
+        dataToggle: attrFrom(element, "data-toggle"),
+        dataTarget: attrFrom(element, "data-target")
+      };
+    };
 
     const visibleText = textFrom(document.body).slice(0, maxTextLength);
     const title = document.title.trim() || null;
@@ -46,6 +76,28 @@ export async function extractPageData(page: Page, telemetry: PageTelemetry): Pro
         ariaLabel: attrFrom(element, "aria-label")
       }))
       .slice(0, 150);
+
+    const elements = Array.from(document.querySelectorAll("a[href], button, input, select, textarea, [role], [aria-label], [title], [data-testid], [data-test-id], [data-action], [data-toggle]"))
+      .map(compactElement)
+      .filter((element) =>
+        Boolean(
+          element.text ||
+            element.ariaLabel ||
+            element.ariaControls ||
+            element.ariaExpanded ||
+            element.title ||
+            element.role ||
+            element.id ||
+            element.className ||
+            element.href ||
+            element.name ||
+            element.dataTestId ||
+            element.dataAction ||
+            element.dataToggle ||
+            element.dataTarget
+        )
+      )
+      .slice(0, 350);
 
     const forms = Array.from(document.querySelectorAll("form"))
       .map((form) => ({
@@ -101,6 +153,7 @@ export async function extractPageData(page: Page, telemetry: PageTelemetry): Pro
       headings,
       links,
       buttons,
+      elements,
       forms,
       images,
       scripts

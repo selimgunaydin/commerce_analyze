@@ -23,15 +23,15 @@ export function MarkdownActions({ markdown }: { markdown: string }) {
         className="focus-ring inline-flex h-9 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-medium text-ink hover:bg-panel"
       >
         <Copy aria-hidden="true" size={16} />
-        {copyState === "copied" ? "Copied" : copyState === "failed" ? "Copy failed" : "Copy Markdown"}
+        {copyState === "copied" ? "Kopyalandı" : copyState === "failed" ? "Kopyalanamadı" : "Markdown'u kopyala"}
       </button>
       <a
         href={`data:text/markdown;charset=utf-8,${encodeURIComponent(markdown)}`}
-        download="ai-commerce-audit-report.md"
+        download="entysa-e-commerce-audit-report.md"
         className="focus-ring inline-flex h-9 items-center gap-2 rounded-md bg-accent px-3 text-sm font-medium text-white hover:bg-[#0c6b5e]"
       >
         <Download aria-hidden="true" size={16} />
-        Download Markdown
+        Markdown indir
       </a>
     </div>
   );
