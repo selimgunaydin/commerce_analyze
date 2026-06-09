@@ -15,8 +15,17 @@ Date: 2026-06-09
   - `roadmap/05-lighthouse-accessibility.md`
   - `roadmap/06-manual-competitor-analysis.md`
   - `roadmap/07-scoring-engine.md`
-- Next roadmap phase: `roadmap/08-ai-provider-and-agents.md`
-- Phase boundary respected: no AI integration, AI comparison, opportunity generation, final report generation, or automatic competitor discovery was added.
+- Completed roadmap phases after Docker-backed continuation:
+  - `roadmap/08-ai-provider-and-agents.md`
+  - `roadmap/09-competitor-comparison-agent.md`
+- Completed roadmap phase after latest continuation:
+  - `roadmap/10-opportunity-generator.md`
+- Completed roadmap phases after latest requested pass:
+  - `roadmap/11-final-report-ui.md`
+  - `roadmap/12-hardening-security-production.md`
+- Roadmap comparison completed for phases 1-12.
+- Phase 13 was not started.
+- Phase boundary respected: no PDF export, automatic proposal generation, automatic competitor discovery, multi-tenant auth, or Phase 13 future extension was added.
 
 ## Completed In This Pass
 
@@ -252,68 +261,239 @@ Date: 2026-06-09
 - Worker now creates a deterministic scorecard report before `REPORT_READY`.
 - `/audits/[id]` shows the latest scorecard.
 
+## Completed In Phase 8
+
+- Added AI provider environment options:
+  - `OPENAI_API_KEY`
+  - `OPENAI_BASE_URL`
+  - `OPENAI_MODEL`
+  - `AI_TIMEOUT_MS`
+- Added `AuditProject.siteProfile` and `AuditPage.aiAnalysis` Prisma fields.
+- Added Phase 8 Prisma migration for AI analysis fields.
+- Added AI schema validation for:
+  - `SiteProfile`
+  - `PageUXAnalysis`
+- Added JSON parsing and repair helpers for provider responses.
+- Added OpenAI-compatible chat completions provider with JSON response mode.
+- Added local structured fallback provider when no API key is configured or provider calls fail.
+- Added core AI agents:
+  - `src/lib/ai/agents/site-profiler-agent.ts`
+  - `src/lib/ai/agents/page-ux-analyzer-agent.ts`
+- Worker now:
+  - enters `AI_ANALYSIS`
+  - creates a site profile from homepage evidence
+  - creates page UX analysis for each crawled customer page
+  - stores AI output as validated JSON
+  - falls back to local structured output if provider execution fails
+- `/audits/[id]` now shows the site profile and page-level UX AI analysis.
+
+## Completed In Phase 9
+
+- Added `CompetitorComparison` Zod schema and type.
+- Added competitor comparison system prompt aligned with roadmap evidence rules.
+- Extended the local structured fallback provider to produce competitor comparisons from detector differences.
+- Added `src/lib/ai/agents/competitor-comparison-agent.ts`.
+- Competitor comparison agent input includes:
+  - customer site profile
+  - customer homepage detectors
+  - customer homepage AI analysis
+  - customer homepage Lighthouse and accessibility summaries
+  - customer scorecard
+  - manual competitor homepage detectors
+  - manual competitor Lighthouse and accessibility summaries
+  - manual competitor visible text summaries
+- Worker now runs competitor comparison after core AI agents when manual competitors exist.
+- Competitor comparison output is merged into `AuditReport.content.competitorComparison`.
+- `/audits/[id]` now shows:
+  - comparison summary
+  - customer advantages
+  - competitor advantages
+  - evidence-backed gap list
+  - current customer state, competitor observation, recommendation, impact, and evidence per gap
+
+## Completed In Phase 10
+
+- Added `Opportunity` Prisma model and `AuditProject.opportunities` relation.
+- Added Phase 10 Prisma migration for opportunities.
+- Added `AuditOpportunity` Zod schema.
+- Added `OpportunityGeneration` Zod schema with 5-15 validated opportunities.
+- Added opportunity generator system prompt aligned with roadmap task/evidence rules.
+- Extended local structured fallback provider to generate implementation-ready opportunities from:
+  - competitor comparison gaps
+  - failed detector results
+  - accessibility violations
+  - Lighthouse opportunities
+  - page UX missed opportunities
+  - low scorecard categories
+- Added `src/lib/ai/agents/opportunity-generator-agent.ts`.
+- Opportunity Generator Agent input includes:
+  - site profile
+  - scorecard
+  - customer page AI analyses
+  - detector results
+  - Lighthouse summaries
+  - accessibility findings
+  - competitor comparison gaps
+- Worker now runs opportunity generation after core AI agents and competitor comparison.
+- Worker deletes old opportunities for the audit before writing the new validated set.
+- Worker stores generated opportunities in the `Opportunity` table.
+- Worker logs quick win and strategic project counts using roadmap criteria.
+- `GET /api/audits/[id]` now includes opportunities.
+- `/audits/[id]` now shows:
+  - opportunity count
+  - quick wins
+  - strategic projects
+  - other opportunities
+  - priority, effort, impact, complexity, category, and affected page counts
+  - suggested implementation
+  - evidence
+  - acceptance criteria
+  - related competitor examples
+
+## Completed In Phase 11
+
+- Added `FinalAuditReport` Zod schema.
+- Added `auditScorecardSchema`.
+- Added Report Writer system prompt.
+- Added `src/lib/ai/agents/report-writer-agent.ts`.
+- Added `src/lib/report/report-builder.ts`.
+- Final report builder creates:
+  - executive summary
+  - site profile section
+  - scorecard section
+  - top findings
+  - competitor summary
+  - opportunity list
+  - quick wins
+  - strategic projects
+  - technical appendix
+  - Markdown report
+- Report Writer Agent uses a deterministic draft and preserves stored opportunity lists.
+- Local structured fallback provider now supports `FinalAuditReport`.
+- Worker now runs final report writing after opportunity generation.
+- Worker writes final report JSON to `AuditReport.content.finalReport`.
+- Worker writes Markdown report to `AuditReport.markdown`.
+- Worker updates `AuditReport.executiveSummary` and report title.
+- Added `/audits/[id]/report` page.
+- Added report components under `src/components/report/`.
+- Report UI includes:
+  - overall score
+  - scorecard cards
+  - executive summary
+  - site profile
+  - top findings
+  - competitor summary and gaps
+  - homepage findings
+  - PLP findings
+  - PDP findings
+  - technical audit
+  - SEO audit
+  - accessibility audit
+  - conversion opportunities
+  - quick wins
+  - strategic projects
+  - full task list
+  - evidence screenshots
+  - technical appendix
+  - Markdown copy/download controls
+- `/audits/[id]` now links to `/audits/[id]/report` when the audit is `REPORT_READY`.
+
+## Completed In Phase 12
+
+- Strengthened SSRF protection:
+  - redirect chain count is capped
+  - final URL remains validated after browser navigation
+  - IPv6 link-local detection now covers `fe80::/10`
+  - metadata IP blocking is covered by link-local IPv4 checks
+- Added API rate limiting:
+  - `POST /api/audits`
+  - `POST /api/audits/[id]/start`
+- Added env-based rate limit configuration.
+- Added env-based crawler max page limit.
+- Worker now enforces `CRAWLER_MAX_PAGES`.
+- Max competitor limit remains enforced by `ManualCompetitorProvider`.
+- Added screenshot file-size guard with JPEG and viewport fallback.
+- Added storage cleanup helper.
+- Worker reruns now clear stale:
+  - customer pages
+  - reports
+  - opportunities
+  - customer screenshots
+  - competitor screenshots
+- Worker idempotency improved for reruns.
+- Per-page AI analysis failures now persist error JSON and do not fail the whole audit.
+- Added AI input/cost guard helper:
+  - max prompt chars
+  - max string chars
+  - max array items
+- All AI agents now use guarded prompt JSON serialization.
+- Added admin API key guard helper for future admin-only internal endpoints.
+- Added basic test suite.
+- Added `pnpm test` script.
+- Added tests for:
+  - URL validation
+  - URL normalization
+  - page classifier and discovery
+  - detector engine
+  - scoring engine
+  - opportunity schema validation
+  - final report Markdown headings
+- Created comprehensive `README.md`.
+- Added deployment notes and security notes to README.
+
+## Roadmap 1-12 Comparison Follow-Up
+
+- Compared completed work against `roadmap/01` through `roadmap/12`.
+- Found and fixed one Phase 7 gap:
+  - added page-level scorecard calculation with `calculatePageScorecard`
+  - worker now stores page-level scores in `AuditReport.content.pageScores`
+  - tests now cover page-level scoring
+- No Phase 13 work was started.
+
 ## Verification
 
 - `pnpm install` completed.
 - `pnpm prisma:generate` completed.
 - `pnpm typecheck` passed.
 - `pnpm build` passed.
-- URL validation smoke test passed:
-  - blocks `localhost`
-  - blocks `.local`
-  - blocks `127.0.0.1`
-  - blocks `192.168.1.5`
-  - normalizes `https://example.com:443/path#x` to `https://example.com/path`
-- Playwright browser smoke test passed.
-- Crawler smoke test passed against `https://example.com/`:
-  - page type: `home`
-  - title: `Example Domain`
-  - desktop screenshot: created
-  - mobile screenshot: created
-  - H1 count: 1
-  - link count: 1
-- Phase 3 discovery smoke test passed:
-  - external link excluded
-  - tracking params and hash stripped
-  - Standard depth selected 1 PLP and 1 PDP candidate
-- Phase 3 generic crawler smoke test passed against `https://example.com/`:
-  - page type: `home`
-  - title: `Example Domain`
-  - desktop screenshot: created
-  - mobile screenshot: created
-  - H1 count: 1
-  - link count: 1
-- Phase 4 detector smoke test passed:
-  - generated 24 PDP detector results from synthetic product data
-  - detected add-to-cart as passed with high confidence
-- Phase 5 accessibility runner smoke test passed against `https://example.com/`.
-- Phase 5 Lighthouse runner smoke test passed against `https://example.com/`.
-- Phase 6 manual competitor provider smoke test passed:
-  - `Brand - URL` parsed correctly
-  - tracking params stripped
-  - duplicate URLs removed
-- Phase 7 scoring smoke test passed:
-  - generated deterministic scorecard from synthetic page data
-  - no-competitor positioning score returned neutral 50
-- Final `pnpm typecheck` passed after Phase 7.
-- Final `pnpm build` passed after Phase 7.
-
-## Verification Gap
-
-- Full API + DB + Redis + worker status-flow test was not run because Docker Engine API access is not available in this environment.
-- `docker-compose.yml` is ready for local PostgreSQL and Redis when Docker is started.
+- `pnpm test` passed.
+- Earlier phase smoke tests passed for URL validation, Playwright crawler/screenshots, discovery, detectors, Lighthouse/axe, manual competitor parsing, and scoring.
+- Docker Postgres and Redis containers were confirmed running.
+- Prisma migrations were applied to the Docker-backed PostgreSQL database.
+- Local fallback `PageUXAnalysis` smoke test passed during Phase 8.
+- Local fallback `CompetitorComparison` smoke test passed with 1 generated evidence-backed gap.
+- Live Docker-backed QUICK audit without competitors passed during Phase 8:
+  - audit id: `cmq69vegn0000nbg1nwtqunh7`
+  - status: `REPORT_READY`
+  - crawler, screenshots, detectors, Lighthouse, axe, scorecard, site profile, and page AI analysis were created.
+- Live Docker-backed QUICK audit with a manual competitor passed during Phase 9:
+  - audit id: `cmq6a751p0000nbrhhuvqe36e`
+  - customer URL: `https://example.com/`
+  - competitor URL: `https://www.w3.org/`
+  - status: `REPORT_READY`
+  - `AuditReport.content.competitorComparison.gaps` contained 6 gaps.
+  - `/audits/cmq6a751p0000nbrhhuvqe36e` server-rendered HTML included the competitor comparison section and generated gap labels.
+- Phase 10 fallback `OpportunityGeneration` smoke test passed:
+  - generated 10 validated opportunities from synthetic detector, accessibility, Lighthouse, scorecard, and competitor evidence
+  - output included at least one quick-win-compatible task
+- Phase 10 migration was applied to the Docker-backed PostgreSQL database.
+- Live Docker-backed QUICK audit with a manual competitor passed during Phase 10:
+  - audit id: `cmq6aor6f0000nb4ryhay9e0q`
+  - customer URL: `https://example.com/`
+  - competitor URL: `https://www.w3.org/`
+  - status: `REPORT_READY`
+  - generated 15 `Opportunity` records
+  - 11 opportunities matched quick win criteria
+  - `/audits/cmq6aor6f0000nb4ryhay9e0q` server-rendered HTML included the opportunities section, quick wins, evidence, acceptance criteria, and CTA task text.
+- Phase 11/12 local verification passed:
+  - `pnpm test`
+  - `pnpm typecheck`
+  - `pnpm build`
+  - final report Markdown builder smoke test
+- Attempted Docker-backed live Phase 11 report verification, but sandbox escalation was rejected by the app usage-limit reviewer before the server/worker could start.
 
 ## Continue From Here
 
-1. Start Docker Desktop or another Docker daemon.
-2. Run `docker compose up -d postgres redis`.
-3. Copy `.env.example` to `.env` or provide matching env vars.
-4. Run `pnpm prisma:migrate`.
-5. Run the Next.js app with `pnpm dev`.
-6. Run the worker with `pnpm worker`.
-7. Verify that `/audits/new` creates an audit, enqueues a job, crawls the homepage, discovers PLP/PDP candidates for `STANDARD`, stores screenshots, runs detectors, runs Lighthouse/axe, analyzes manual competitors, creates a scorecard, and shows everything on `/audits/[id]`.
-
-## Next Roadmap Item
-
-- Finish the live DB/Redis worker verification gap first.
-- Then move to `roadmap/08-ai-provider-and-agents.md`.
+- Stop at Phase 12 unless the user explicitly asks to continue.
+- Do not start `roadmap/13-future-extensions.md` without explicit approval.
+- If continuing after approval, first run a Docker-backed live audit to verify Phase 11 final report persistence end-to-end because that live check was blocked by escalation usage limits.

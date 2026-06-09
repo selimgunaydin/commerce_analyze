@@ -41,7 +41,7 @@ export async function crawlPage(params: {
       const desktopPage = await desktopContext.newPage();
       const telemetry = attachTelemetry(desktopPage);
 
-      await desktopPage.goto(params.url, {
+      const mainResponse = await desktopPage.goto(params.url, {
         waitUntil: "domcontentloaded",
         timeout: env.CRAWLER_TIMEOUT_MS
       });
@@ -51,6 +51,7 @@ export async function crawlPage(params: {
 
       const finalUrl = desktopPage.url();
       await validateAndNormalizeUrl(finalUrl);
+      assertRedirectLimit(mainResponse, env.CRAWLER_MAX_REDIRECTS);
 
       const extracted = await extractPageData(desktopPage, telemetry);
       const desktopScreenshot = await captureFullPageScreenshot({
@@ -135,4 +136,22 @@ function attachTelemetry(page: Page) {
     consoleErrors,
     failedRequests
   };
+}
+
+function assertRedirectLimit(response: Awaited<ReturnType<Page["goto"]>>, maxRedirects: number) {
+  if (!response) {
+    return;
+  }
+
+  let redirects = 0;
+  let request = response.request();
+
+  while (request.redirectedFrom()) {
+    redirects += 1;
+    request = request.redirectedFrom()!;
+  }
+
+  if (redirects > maxRedirects) {
+    throw new Error(`Too many redirects: ${redirects}. Max allowed redirects: ${maxRedirects}.`);
+  }
 }

@@ -2,6 +2,8 @@ import { AuditDepth } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/src/lib/db/prisma";
+import { getEnv } from "@/src/lib/config/env";
+import { rateLimit } from "@/src/lib/security/rate-limit";
 import {
   ManualCompetitorInputError,
   ManualCompetitorProvider,
@@ -23,6 +25,15 @@ const createAuditSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const rateLimitResponse = rateLimit(request, {
+      keyPrefix: "audit-create",
+      maxRequests: getEnv().AUDIT_CREATE_RATE_LIMIT_MAX
+    });
+
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const payload = createAuditSchema.parse(await request.json());
     const validatedUrl = await validateAndNormalizeUrl(payload.url);
     const competitorProvider = new ManualCompetitorProvider();

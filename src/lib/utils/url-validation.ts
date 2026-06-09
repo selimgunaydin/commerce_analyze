@@ -128,14 +128,7 @@ function isBlockedIpv4(address: string) {
 function isBlockedIpv6(address: string) {
   const normalized = address.toLowerCase();
 
-  if (
-    normalized === "::1" ||
-    normalized === "0:0:0:0:0:0:0:1" ||
-    normalized === "::" ||
-    normalized.startsWith("fe80:") ||
-    normalized.startsWith("fc") ||
-    normalized.startsWith("fd")
-  ) {
+  if (normalized === "::1" || normalized === "0:0:0:0:0:0:0:1" || normalized === "::" || isUniqueLocalIpv6(normalized) || isLinkLocalIpv6(normalized)) {
     return true;
   }
 
@@ -146,4 +139,18 @@ function isBlockedIpv6(address: string) {
   }
 
   return false;
+}
+
+function isUniqueLocalIpv6(address: string) {
+  return address.startsWith("fc") || address.startsWith("fd");
+}
+
+function isLinkLocalIpv6(address: string) {
+  const firstHextet = Number.parseInt(address.split(":")[0] ?? "", 16);
+
+  if (!Number.isFinite(firstHextet)) {
+    return false;
+  }
+
+  return firstHextet >= 0xfe80 && firstHextet <= 0xfebf;
 }

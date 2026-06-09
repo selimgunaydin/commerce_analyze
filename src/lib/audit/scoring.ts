@@ -11,6 +11,10 @@ export type AuditScorecard = {
   overall: number;
 };
 
+export type AuditPageScorecard = AuditScorecard & {
+  pageType: string;
+};
+
 export type ScoringPage = {
   pageType: string;
   domText?: string | null;
@@ -97,6 +101,34 @@ export function calculateAuditScorecard(params: {
   });
 
   return {
+    ux,
+    performance,
+    seo,
+    accessibility,
+    conversion,
+    competitorPositioning,
+    overall
+  };
+}
+
+export function calculatePageScorecard(page: ScoringPage): AuditPageScorecard {
+  const ux = detectorScore([page], uxDetectorKeys, 68);
+  const conversion = detectorScore([page], conversionDetectorKeys, 65);
+  const performance = performanceScore([page]);
+  const seo = seoScore([page]);
+  const accessibility = accessibilityScore([page]);
+  const competitorPositioning = 50;
+  const overall = weightedOverall({
+    ux,
+    conversion,
+    performance,
+    seo,
+    accessibility,
+    competitorPositioning
+  });
+
+  return {
+    pageType: page.pageType,
     ux,
     performance,
     seo,

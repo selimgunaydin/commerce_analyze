@@ -39,6 +39,11 @@ export async function GET(_request: Request, context: RouteContext) {
           createdAt: "desc"
         },
         take: 1
+      },
+      opportunities: {
+        orderBy: {
+          createdAt: "asc"
+        }
       }
     }
   });

@@ -14,6 +14,7 @@ model AuditProject {
   brandName     String?
   industry      String?
   country       String?
+  siteProfile   Json?
   depth         AuditDepth  @default(STANDARD)
   status        AuditStatus @default(QUEUED)
   errorMessage  String?
@@ -22,6 +23,7 @@ model AuditProject {
   pages         AuditPage[]
   competitors   Competitor[]
   reports       AuditReport[]
+  opportunities Opportunity[]
 
   @@index([status])
   @@index([createdAt])
@@ -47,6 +49,7 @@ model AuditPage {
   detectorResults      Json?
   lighthouse           Json?
   accessibility        Json?
+  aiAnalysis           Json?
   createdAt            DateTime     @default(now())
 
   @@index([projectId])
@@ -107,6 +110,29 @@ model AuditReport {
 
   @@index([projectId])
   @@index([createdAt])
+}
+
+model Opportunity {
+  id                        String       @id @default(cuid())
+  projectId                 String
+  project                   AuditProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title                     String
+  description               String
+  category                  String
+  priority                  String
+  estimatedEffort           String
+  expectedImpact            String
+  implementationComplexity  String
+  evidence                  Json
+  affectedPages             Json
+  acceptanceCriteria        Json
+  relatedCompetitorExamples Json?
+  suggestedImplementation   String?
+  createdAt                 DateTime     @default(now())
+
+  @@index([projectId])
+  @@index([priority])
+  @@index([category])
 }
 
 enum AuditStatus {
