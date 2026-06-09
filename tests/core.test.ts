@@ -121,6 +121,34 @@ test("Detector engine uses DOM attributes for mobile menu and wishlist signals",
   assert.equal(plpDetectors.find((detector) => detector.key === "plp_has_wishlist")?.passed, true);
 });
 
+test("Detector engine reads footer support links from page landmarks", () => {
+  const detectors = runEcommerceDetectors({
+    pageType: "home",
+    extracted: extractedPage({
+      links: Array.from({ length: 300 }, (_, index) => ({
+        text: `Ürün linki ${index}`,
+        href: `https://shop.test/product-${index}`
+      })),
+      landmarks: [
+        {
+          area: "footer",
+          text: "Müşteri Hizmetleri Gizlilik Politikası İade ve Kargo",
+          links: [
+            { text: "Müşteri Hizmetleri", href: "https://shop.test/musteri-hizmetleri" },
+            { text: "Gizlilik Politikası", href: "https://shop.test/gizlilik" },
+            { text: "İade ve Kargo", href: "https://shop.test/iade-kargo" }
+          ]
+        }
+      ]
+    })
+  });
+
+  const footerDetector = detectors.find((detector) => detector.key === "homepage_has_footer_links");
+
+  assert.equal(footerDetector?.passed, true);
+  assert.match(footerDetector?.evidence.join(" ") ?? "", /Footer link/);
+});
+
 test("Scoring engine returns deterministic scorecard", () => {
   const scorecard = calculateAuditScorecard({
     pages: [
@@ -227,6 +255,8 @@ test("Final report markdown builder keeps required headings", () => {
   assert.match(markdown, /## Hızlı Kazanımlar/);
   assert.match(markdown, /## Tüm Fırsatlar/);
   assert.match(markdown, /## Teknik Ek/);
+  assert.match(markdown, /Ekran Görüntüsü \/ Odak Alanı/);
+  assert.match(markdown, /Best Practice/);
 });
 
 test("Final report markdown summarizes quick wins and dedupes repeated task evidence", () => {
@@ -292,6 +322,8 @@ test("Final report markdown summarizes quick wins and dedupes repeated task evid
   assert.equal((markdown.match(/### /g) ?? []).length, 1);
   assert.match(markdown, /Geliştirici görevi/);
   assert.match(markdown, /PM kararı/);
+  assert.match(markdown, /Odak alanı:/);
+  assert.match(markdown, /Best Practice/);
 });
 
 function extractedPage(overrides: Partial<ExtractedPageData> = {}): ExtractedPageData {

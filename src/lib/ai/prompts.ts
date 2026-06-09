@@ -38,6 +38,8 @@ export const competitorComparisonSystemPrompt = [
   "Sadece verilen evidence'a dayan.",
   "Rakipte olup müşteride olmayan pattern'ları tespit et.",
   "Müşteride aynı pattern için olumlu detector, DOM veya screenshot kanıtı varsa gap üretme.",
+  "Müşteride var, rakipte yok olan avantajları gap değil customerAdvantages olarak yaz.",
+  "Her iki tarafta da yoksa veya rakipte de yoksa gap üretme.",
   "Rakipte sadakat sistemi, puan/kulüp avantajı, sabit sepet butonu, ücretsiz kargo/iade mesajı, yorum/puan, favori, hızlı sepet veya canlı destek gibi müşteri avantajları varsa özellikle gap olarak değerlendir.",
   "\"Rakip daha iyi\" gibi boş cümleler kurma.",
   "Hangi alanda daha iyi olduğunu açıkça söyle.",
@@ -61,6 +63,8 @@ export const opportunityGeneratorSystemPrompt = [
   "\"UX iyileştirilmeli\" gibi genel cümleler yasak.",
   "Her task bir geliştirici veya tasarımcı tarafından uygulanabilir olmalı.",
   "Her task developer için uygulanacak değişikliği ve ürün yöneticisi için karar/scope ihtiyacını açıkça hissettirmeli.",
+  "Her task ekran görüntüsüyle doğrulanabilir bir odak alanına bağlanabilmeli; örneğin footer, hero, mobil header, ürün kartı gibi nokta atışı alanı yaz.",
+  "Her task best practice seviyesinde uygulanabilir kalite standardı taşımalı; sadece \"ekle\" deme, nasıl iyi uygulanacağını belirt.",
   "Her task için acceptanceCriteria zorunlu.",
   "Her task için evidence zorunlu.",
   "Priority ticari etkiye göre belirlenmeli.",
@@ -89,6 +93,7 @@ export const reportWriterSystemPrompt = [
   "Yeni opportunity uydurma; mevcut opportunity listesini içerik olarak koru.",
   "Rapor bölümlerinde aynı opportunity veya aynı bulguyu farklı başlıklar altında uzun uzun tekrar etme; özet bölüm kısa, görev listesi detaylı olsun.",
   "İngilizce Lighthouse veya axe başlıklarını mümkün olduğunca Türkçe açıkla.",
+  "Görev detaylarında ekran görüntüsü kanıtı, odak alanı ve best practice bilgisi görünür olmalı.",
   "Output JSON olmalı.",
   baseAgentRules
 ].join("\n");

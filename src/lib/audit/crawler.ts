@@ -48,6 +48,7 @@ export async function crawlPage(params: {
       await desktopPage.waitForLoadState("networkidle", {
         timeout: Math.min(env.CRAWLER_TIMEOUT_MS, 10_000)
       }).catch(() => undefined);
+      await preparePageForAudit(desktopPage);
 
       const finalUrl = desktopPage.url();
       await validateAndNormalizeUrl(finalUrl);
@@ -70,6 +71,7 @@ export async function crawlPage(params: {
       await mobilePage.waitForLoadState("networkidle", {
         timeout: Math.min(env.CRAWLER_TIMEOUT_MS, 10_000)
       }).catch(() => undefined);
+      await preparePageForAudit(mobilePage);
 
       const mobileScreenshot = await captureFullPageScreenshot({
         page: mobilePage,
@@ -104,6 +106,33 @@ export async function crawlPage(params: {
   } finally {
     await browser.close();
   }
+}
+
+async function preparePageForAudit(page: Page) {
+  await page.evaluate(async () => {
+    const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+    const maxScrollY = Math.max(
+      document.body.scrollHeight,
+      document.documentElement.scrollHeight,
+      document.body.offsetHeight,
+      document.documentElement.offsetHeight
+    );
+    const step = Math.max(window.innerHeight * 0.8, 500);
+
+    for (let y = 0; y < maxScrollY; y += step) {
+      window.scrollTo(0, y);
+      await wait(80);
+    }
+
+    window.scrollTo(0, maxScrollY);
+    await wait(150);
+    window.scrollTo(0, 0);
+    await wait(120);
+  }).catch(() => undefined);
+
+  await page.waitForLoadState("networkidle", {
+    timeout: 5_000
+  }).catch(() => undefined);
 }
 
 function attachTelemetry(page: Page) {

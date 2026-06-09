@@ -48,6 +48,14 @@ export type ExtractedPageData = {
       label?: string;
     }[];
   }[];
+  landmarks?: {
+    area: "header" | "main" | "footer" | "nav" | "unknown";
+    text: string;
+    links: {
+      text: string;
+      href: string;
+    }[];
+  }[];
   consoleErrors: string[];
   failedRequests: {
     url: string;

@@ -55,6 +55,33 @@ const mobileMenuKeywords = [
   "yan menü"
 ];
 
+const footerSupportKeywords = [
+  "privacy",
+  "gizlilik",
+  "kvkk",
+  "terms",
+  "kosullar",
+  "koşullar",
+  "contact",
+  "iletisim",
+  "iletişim",
+  "about",
+  "hakkimizda",
+  "hakkımızda",
+  "yardim",
+  "yardım",
+  "musteri hizmetleri",
+  "müşteri hizmetleri",
+  "sss",
+  "sikca sorulan",
+  "sıkça sorulan",
+  "iade",
+  "kargo",
+  "teslimat",
+  "magazalar",
+  "mağazalar"
+];
+
 export function runEcommerceDetectors(params: {
   pageType: PageType;
   extracted: ExtractedPageData;
@@ -192,10 +219,10 @@ function getHomepageDetectors(context: DetectorContext): DetectorResult[] {
     result({
       key: "homepage_has_footer_links",
       label: "Ana sayfada footer destek linkleri var",
-      passed: hasAny(context.linkText, ["privacy", "terms", "contact", "about", "gizlilik", "iletisim", "iletişim", "yardim", "yardım"]),
+      passed: hasFooterSupportLinks(context),
       confidence: 0.55,
       severity: "low",
-      evidence: findLinkEvidence(context, ["privacy", "terms", "contact", "about", "gizlilik", "iletisim", "yardim"])
+      evidence: footerSupportEvidence(context)
     })
   ];
 }
@@ -527,6 +554,29 @@ function formFieldEvidence(context: DetectorContext, keywords: string[]) {
     .filter((field) => hasAny(`${field.name ?? ""} ${field.type ?? ""} ${field.placeholder ?? ""} ${field.label ?? ""}`, keywords))
     .map((field) => `Alan: ${truncateEvidence(field.placeholder || field.label || field.name || field.type || "")}`)
     .slice(0, 4);
+}
+
+function footerSupportEvidence(context: DetectorContext) {
+  const footerLandmarks = (context.extracted.landmarks ?? []).filter((landmark) => landmark.area === "footer");
+  const footerLinks = footerLandmarks.flatMap((landmark) => landmark.links);
+  const matchedFooterLinks = footerLinks
+    .filter((link) => hasAny(`${link.text} ${link.href}`, footerSupportKeywords))
+    .map((link) => `Footer link: ${truncateEvidence(link.text || link.href)}`);
+  const matchedFooterText = footerLandmarks.flatMap((landmark) => matchEvidence(normalize(landmark.text), footerSupportKeywords));
+  const fallbackLinks = findLinkEvidence(context, footerSupportKeywords).map((item) => item.replace(/^Link:/, "Destek linki:"));
+
+  return [
+    ...matchedFooterLinks,
+    ...matchedFooterText,
+    footerLinks.length > 0 ? `Footer link sayısı: ${footerLinks.length}` : "",
+    ...fallbackLinks
+  ].filter(Boolean).slice(0, 5);
+}
+
+function hasFooterSupportLinks(context: DetectorContext) {
+  const evidence = footerSupportEvidence(context);
+
+  return evidence.some((item) => !item.startsWith("Footer link sayısı")) || hasAny(context.linkText, footerSupportKeywords);
 }
 
 function matchEvidence(text: string, keywords: string[]) {

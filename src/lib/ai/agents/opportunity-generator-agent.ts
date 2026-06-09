@@ -49,6 +49,8 @@ function buildOpportunityGeneratorPrompt(params: {
     "Sadakat/puan/kulüp, favori, hızlı sepet, sticky sepete ekle, yorum/puan, kargo/iade ve canlı destek sinyallerini müşteri etkisiyle değerlendir.",
     "Detector confidence düşükse veya kanıt sadece zayıf sinyalse kesin \"yok\" deme; görevi doğrulama/görünürleştirme olarak yaz.",
     "suggestedImplementation developer'ın uygulayacağı somut değişiklik olmalı; acceptanceCriteria PM'in kapatabileceği doğrulama maddeleri olmalı.",
+    "Görevin odak alanını suggestedImplementation veya acceptanceCriteria içinde nokta atışı belirt: footer, hero, mobil header, ürün kartı, PDP karar alanı gibi.",
+    "Screenshot path varsa evidence içinde ilgili desktop/mobile screenshot yolunu ve odak alanını belirt.",
     "competitorComparison.gaps varsa kullan; olmayan rakip örneği uydurma.",
     "JSON key ve enum değerlerini schema ile aynı tut; tüm açıklama/string değerlerini Türkçe yaz.",
     "INPUT_JSON:",
@@ -66,6 +68,10 @@ function compactPage(page: AuditPage) {
     lighthouse: page.lighthouse,
     accessibility: page.accessibility,
     aiAnalysis: page.aiAnalysis,
+    screenshots: {
+      desktop: page.screenshotPath,
+      mobile: page.mobileScreenshotPath
+    },
     consoleErrors: page.consoleErrors,
     failedRequests: page.failedRequests
   };

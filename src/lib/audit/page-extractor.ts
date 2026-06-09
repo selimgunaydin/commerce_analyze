@@ -67,7 +67,7 @@ export async function extractPageData(page: Page, telemetry: PageTelemetry): Pro
         href: element.href
       }))
       .filter((link) => link.href)
-      .slice(0, 250);
+      .slice(0, 700);
 
     const buttons = Array.from(document.querySelectorAll("button, input[type='button'], input[type='submit']"))
       .map((element) => ({
@@ -117,6 +117,38 @@ export async function extractPageData(page: Page, telemetry: PageTelemetry): Pro
       }))
       .slice(0, 50);
 
+    const landmarkElements = Array.from(document.querySelectorAll("header, main, footer, nav, [role='banner'], [role='main'], [role='contentinfo'], [role='navigation'], [id*='footer' i], [class*='footer' i], [id*='header' i], [class*='header' i]"))
+      .map((element) => {
+        const tag = element.tagName.toLowerCase();
+        const role = attrFrom(element, "role");
+        const idClass = ((attrFrom(element, "id") || "") + " " + (classFrom(element) || "")).toLowerCase();
+        let area = "unknown";
+
+        if (tag === "footer" || role === "contentinfo" || idClass.includes("footer")) {
+          area = "footer";
+        } else if (tag === "header" || role === "banner" || idClass.includes("header")) {
+          area = "header";
+        } else if (tag === "main" || role === "main") {
+          area = "main";
+        } else if (tag === "nav" || role === "navigation") {
+          area = "nav";
+        }
+
+        return {
+          area,
+          text: textFrom(element).slice(0, 2000),
+          links: Array.from(element.querySelectorAll("a[href]"))
+            .map((link) => ({
+              text: textFrom(link),
+              href: link.href
+            }))
+            .filter((link) => link.href)
+            .slice(0, 80)
+        };
+      })
+      .filter((landmark) => landmark.text || landmark.links.length > 0)
+      .slice(0, 40);
+
     const images = Array.from(document.querySelectorAll("img"))
       .map((image) => ({
         src: image.currentSrc || image.src || "",
@@ -155,6 +187,7 @@ export async function extractPageData(page: Page, telemetry: PageTelemetry): Pro
       buttons,
       elements,
       forms,
+      landmarks: landmarkElements,
       images,
       scripts
     };

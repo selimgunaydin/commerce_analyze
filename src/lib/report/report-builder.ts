@@ -119,7 +119,7 @@ export function buildMarkdownReport(report: FinalAuditReport) {
     "",
     "## Tüm Fırsatlar",
     "",
-    opportunityMarkdown(opportunities),
+    opportunityMarkdown(opportunities, report.technicalAppendix.screenshots),
     "",
     "## Teknik Ek",
     "",
@@ -338,7 +338,7 @@ function scorecardMarkdown(scorecard: AuditScorecard) {
   ].join("\n");
 }
 
-function opportunityMarkdown(opportunities: AuditOpportunity[]) {
+function opportunityMarkdown(opportunities: AuditOpportunity[], screenshots: string[]) {
   if (opportunities.length === 0) {
     return "- Yok.";
   }
@@ -366,6 +366,14 @@ function opportunityMarkdown(opportunities: AuditOpportunity[]) {
         "",
         listMarkdown(opportunity.evidence),
         "",
+        "**Ekran Görüntüsü / Odak Alanı**",
+        "",
+        listMarkdown(screenshotEvidenceForOpportunity(opportunity, screenshots)),
+        "",
+        "**Best Practice**",
+        "",
+        listMarkdown(bestPracticesForOpportunity(opportunity)),
+        "",
         "**Kabul Kriterleri**",
         "",
         listMarkdown(opportunity.acceptanceCriteria)
@@ -385,6 +393,139 @@ function opportunitySummaryMarkdown(opportunities: AuditOpportunity[]) {
         `- ${opportunity.title} — Öncelik: ${formatToken(opportunity.priority)}, Efor: ${formatToken(opportunity.estimatedEffort)}, Etki: ${formatToken(opportunity.expectedImpact)}`
     )
     .join("\n");
+}
+
+function screenshotEvidenceForOpportunity(opportunity: AuditOpportunity, screenshots: string[]) {
+  const focus = visualFocusForOpportunity(opportunity);
+  const pageTypes = opportunity.affectedPages.filter((page) => page !== "audit-wide");
+  const matched = screenshots.filter((path) => pageTypes.some((pageType) => screenshotMatchesPage(path, pageType))).slice(0, 4);
+  const fallback = matched.length > 0 ? matched : screenshots.slice(0, 2);
+
+  if (fallback.length === 0) {
+    return [`Odak alanı: ${focus}. Ekran görüntüsü kanıtı yok; bir sonraki auditte desktop ve mobil screenshot ile doğrulanmalı.`];
+  }
+
+  return fallback.map((path) => `Odak alanı: ${focus} | Screenshot: ${path}`);
+}
+
+function screenshotMatchesPage(path: string, pageType: string) {
+  const normalized = path.toLowerCase();
+
+  return normalized.includes(`/${pageType}-`) || normalized.includes(`${pageType}-desktop`) || normalized.includes(`${pageType}-mobile`);
+}
+
+function visualFocusForOpportunity(opportunity: AuditOpportunity) {
+  const text = normalizeText([opportunity.title, opportunity.description, opportunity.suggestedImplementation, ...opportunity.evidence].join(" "));
+
+  if (/(footer|contentinfo|destek link|politika)/.test(text)) return "Footer / sayfanın en alt destek linkleri alanı";
+  if (/(hero|vitrin|ana gorsel)/.test(text)) return "İlk viewport hero alanı";
+  if (/(cta|aksiyon|sepete|checkout)/.test(text)) return "Ana aksiyon butonu ve karar alanı";
+  if (/(mobile menu|mobil menu|hamburger)/.test(text)) return "Mobil header menü tetikleyicisi";
+  if (/(wishlist|favorite|favori|heart|kalp)/.test(text)) return "Ürün kartı veya PDP favori aksiyonu";
+  if (/(search|arama)/.test(text)) return "Header arama alanı";
+  if (/(category|kategori)/.test(text)) return "Ana sayfa kategori kısayolları";
+  if (/(h1|baslik|heading)/.test(text)) return "Sayfa başlığı / H1 alanı";
+  if (/(contrast|kontrast|color)/.test(text)) return "Kontrast ihlali veren metin ve arka plan alanı";
+
+  return "İlgili sayfa bölümü";
+}
+
+function bestPracticesForOpportunity(opportunity: AuditOpportunity) {
+  const text = normalizeText([opportunity.title, opportunity.description, opportunity.suggestedImplementation, ...opportunity.evidence].join(" "));
+
+  if (/(footer|contentinfo|destek link|politika)/.test(text)) {
+    return [
+      "Footer destek linklerini contentinfo landmark içinde grupla.",
+      "İletişim, yardım/SSS, kargo, iade, gizlilik/KVKK ve kullanım koşulları linklerini mobilde de erişilebilir tut.",
+      "Footer linklerini sadece görsel ikonla değil, okunabilir link metniyle render et."
+    ];
+  }
+
+  if (/(hero|vitrin|ana gorsel)/.test(text)) {
+    return [
+      "Hero alanında tek ana mesaj, tek birincil CTA ve ikincil aksiyonu açık hiyerarşiyle göster.",
+      "Mobilde metin görselin altında veya okunabilir kontrastla görünmeli; CTA ilk viewport içinde kalmalı.",
+      "Hero görseli kampanya veya kategori vaadini gerçekten göstermeli, dekoratif arka planla yetinilmemeli."
+    ];
+  }
+
+  if (/(cta|aksiyon|sepete|checkout)/.test(text)) {
+    return [
+      "CTA metni müşterinin sonraki aksiyonunu açıkça anlatmalı.",
+      "CTA çevresinde fiyat, teslimat, varyant veya güven bilgisi gibi karar destekleri bulunmalı.",
+      "CTA tıklaması analitik event olarak izlenmeli."
+    ];
+  }
+
+  if (/(wishlist|favorite|favori|heart|kalp)/.test(text)) {
+    return [
+      "Favori aksiyonunda erişilebilir ad, boş/dolu durum ve login gerekiyorsa anlaşılır yönlendirme olmalı.",
+      "Ürün kartı ve PDP davranışı tutarlı olmalı.",
+      "Favoriye ekleme/kaldırma eventleri ölçümlenmeli."
+    ];
+  }
+
+  if (/(mobile menu|mobil menu|hamburger)/.test(text)) {
+    return [
+      "Mobil menü butonunda aria-label, aria-controls ve aria-expanded kullanılmalı.",
+      "Menü açıldığında focus yönetimi ve klavye ile kapatma çalışmalı.",
+      "Menüde kategori, arama, hesap ve destek yolları tek elle ulaşılabilir olmalı."
+    ];
+  }
+
+  if (/(search|arama)/.test(text)) {
+    return [
+      "Arama alanı header içinde görünür veya tek dokunuşla açılır olmalı.",
+      "Placeholder örnek arama niyetini anlatmalı.",
+      "Arama submit, boş arama ve sonuçsuz durum davranışları net olmalı."
+    ];
+  }
+
+  if (/(category|kategori)/.test(text)) {
+    return [
+      "Kategori kısayolları en yüksek ticari değere sahip 6-8 hedefle sınırlanmalı.",
+      "Mobilde yatay kaydırma veya iki kolon düzeni taşma yapmadan çalışmalı.",
+      "Her kısayolun link metni kategori niyetini açıkça anlatmalı."
+    ];
+  }
+
+  if (/(h1|baslik|heading)/.test(text)) {
+    return [
+      "Sayfada tek, görünür ve anlamlı H1 olmalı.",
+      "H1 marka sloganı yerine sayfanın ürün/kategori amacını anlatmalı.",
+      "Heading hiyerarşisi H1-H2-H3 şeklinde tutarlı ilerlemeli."
+    ];
+  }
+
+  if (/(contrast|kontrast|color)/.test(text)) {
+    return [
+      "Normal metin için en az 4.5:1, büyük metin için en az 3:1 kontrast hedeflenmeli.",
+      "CTA hover/focus/disabled durumlarında da kontrast korunmalı.",
+      "Renk tek başına durum anlatımı için kullanılmamalı."
+    ];
+  }
+
+  if (opportunity.category === "accessibility") {
+    return [
+      "Düzeltme WCAG ve axe tekrar testiyle doğrulanmalı.",
+      "Klavye erişimi ve ekran okuyucu adı bozulmamalı.",
+      "Yeni bileşenlerde focus görünürlüğü korunmalı."
+    ];
+  }
+
+  if (opportunity.category === "performance") {
+    return [
+      "Değişiklik Lighthouse metriklerinde sayısal iyileşmeyle doğrulanmalı.",
+      "Görsel/script optimizasyonu kullanıcıya görünen içeriği geciktirmemeli.",
+      "Mobil ağ koşullarında regresyon kontrolü yapılmalı."
+    ];
+  }
+
+  return [
+    "Değişiklik desktop ve mobilde ayrı ayrı doğrulanmalı.",
+    "Task kapanmadan önce ilgili detector veya teknik audit tekrar çalıştırılmalı.",
+    "Uygulama kapsamı ölçülebilir bir başarı metriğine bağlanmalı."
+  ];
 }
 
 function listMarkdown(items: string[]) {
