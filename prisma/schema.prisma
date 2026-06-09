@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AuditProject {
+  id            String      @id @default(cuid())
+  url           String
+  normalizedUrl String
+  brandName     String?
+  industry      String?
+  country       String?
+  depth         AuditDepth  @default(STANDARD)
+  status        AuditStatus @default(QUEUED)
+  errorMessage  String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  pages         AuditPage[]
+  competitors   Competitor[]
+  reports       AuditReport[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AuditPage {
+  id                   String       @id @default(cuid())
+  projectId            String
+  project              AuditProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  url                  String
+  pageType             String
+  title                String?
+  metaDescription      String?
+  screenshotPath       String?
+  mobileScreenshotPath String?
+  domText              String?
+  headings             Json?
+  links                Json?
+  buttons              Json?
+  forms                Json?
+  consoleErrors        Json?
+  failedRequests       Json?
+  detectorResults      Json?
+  lighthouse           Json?
+  accessibility        Json?
+  createdAt            DateTime     @default(now())
+
+  @@index([projectId])
+  @@index([pageType])
+}
+
+model Competitor {
+  id            String           @id @default(cuid())
+  projectId     String
+  project       AuditProject     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name          String?
+  url           String
+  normalizedUrl String
+  confidence    Float            @default(1)
+  reason        String?
+  errorMessage  String?
+  pages         CompetitorPage[]
+  createdAt     DateTime         @default(now())
+
+  @@index([projectId])
+  @@index([normalizedUrl])
+}
+
+model CompetitorPage {
+  id                   String     @id @default(cuid())
+  competitorId         String
+  competitor           Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  url                  String
+  pageType             String
+  title                String?
+  metaDescription      String?
+  screenshotPath       String?
+  mobileScreenshotPath String?
+  domText              String?
+  headings             Json?
+  links                Json?
+  buttons              Json?
+  forms                Json?
+  detectorResults      Json?
+  lighthouse           Json?
+  accessibility        Json?
+  createdAt            DateTime   @default(now())
+
+  @@index([competitorId])
+  @@index([pageType])
+}
+
+model AuditReport {
+  id               String       @id @default(cuid())
+  projectId        String
+  project          AuditProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title            String
+  executiveSummary String?
+  scorecard        Json?
+  content          Json?
+  markdown         String?
+  createdAt        DateTime     @default(now())
+
+  @@index([projectId])
+  @@index([createdAt])
+}
+
+enum AuditStatus {
+  QUEUED
+  CRAWLING
+  AUDITING
+  COMPETITOR_ANALYSIS
+  AI_ANALYSIS
+  REPORT_READY
+  FAILED
+}
+
+enum AuditDepth {
+  QUICK
+  STANDARD
+  DEEP
+}
