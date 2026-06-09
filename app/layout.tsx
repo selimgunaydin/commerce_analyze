@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Commerce Audit",
-  description: "AI commerce audit platform foundation"
+  description: "AI destekli e-ticaret audit platformu"
 };
 
 export default function RootLayout({
@@ -14,7 +14,7 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="tr">
       <body className="min-h-screen antialiased">
         <div className="border-b border-line bg-white">
           <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
@@ -23,10 +23,10 @@ export default function RootLayout({
             </Link>
             <nav className="flex items-center gap-4 text-sm text-muted">
               <Link href="/audits" className="hover:text-ink">
-                Audits
+                Auditler
               </Link>
               <Link href="/audits/new" className="hover:text-ink">
-                New audit
+                Yeni audit
               </Link>
             </nav>
           </div>

@@ -38,10 +38,11 @@ function buildOpportunityGeneratorPrompt(params: {
   };
 
   return [
-    "Create an OpportunityGeneration JSON object.",
-    "Return 5-15 implementation-ready opportunities using only the provided evidence.",
-    "Every opportunity must include concrete evidence, affected pages, effort, impact, complexity, acceptance criteria, and suggested implementation.",
-    "Use competitorComparison.gaps when present, but do not invent competitor examples.",
+    "OpportunityGeneration JSON objesi oluştur.",
+    "Sadece verilen kanıtları kullanarak 5-15 arası uygulamaya hazır fırsat döndür.",
+    "Her fırsatta somut kanıt, etkilenen sayfalar, efor, etki, karmaşıklık, kabul kriterleri ve önerilen uygulama olsun.",
+    "competitorComparison.gaps varsa kullan; olmayan rakip örneği uydurma.",
+    "JSON key ve enum değerlerini schema ile aynı tut; tüm açıklama/string değerlerini Türkçe yaz.",
     "INPUT_JSON:",
     stringifyForAIPrompt(payload)
   ].join("\n");

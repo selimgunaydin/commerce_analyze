@@ -37,12 +37,9 @@ export async function createAuditContext(browser: Browser, viewport: ViewportKin
         : undefined,
     ignoreHTTPSErrors: true,
     javaScriptEnabled: true,
-    extraHTTPHeaders: {
-      "x-commerce-audit": "true"
-    },
     serviceWorkers: "block",
-    locale: "en-US",
-    timezoneId: "UTC",
+    locale: "tr-TR",
+    timezoneId: "Europe/Istanbul",
     reducedMotion: "reduce",
     colorScheme: "light",
     acceptDownloads: false,

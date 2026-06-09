@@ -15,6 +15,7 @@ model AuditProject {
   industry      String?
   country       String?
   siteProfile   Json?
+  activeRunId   String?
   depth         AuditDepth  @default(STANDARD)
   status        AuditStatus @default(QUEUED)
   errorMessage  String?
@@ -26,6 +27,7 @@ model AuditProject {
   opportunities Opportunity[]
 
   @@index([status])
+  @@index([activeRunId])
   @@index([createdAt])
 }
 
@@ -143,6 +145,7 @@ enum AuditStatus {
   AI_ANALYSIS
   REPORT_READY
   FAILED
+  CANCELED
 }
 
 enum AuditDepth {

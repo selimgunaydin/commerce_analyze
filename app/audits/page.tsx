@@ -6,13 +6,14 @@ import { prisma } from "@/src/lib/db/prisma";
 export const dynamic = "force-dynamic";
 
 const statusLabels: Record<AuditStatus, string> = {
-  QUEUED: "Queued",
-  CRAWLING: "Crawling",
-  AUDITING: "Auditing",
-  COMPETITOR_ANALYSIS: "Competitor analysis",
-  AI_ANALYSIS: "AI analysis",
-  REPORT_READY: "Report ready",
-  FAILED: "Failed"
+  QUEUED: "Sırada",
+  CRAWLING: "Crawl",
+  AUDITING: "Teknik Audit",
+  COMPETITOR_ANALYSIS: "Rakip Analizi",
+  AI_ANALYSIS: "AI Analizi",
+  REPORT_READY: "Rapor Hazır",
+  FAILED: "Hata",
+  CANCELED: "İptal Edildi"
 };
 
 const statusClasses: Record<AuditStatus, string> = {
@@ -22,13 +23,15 @@ const statusClasses: Record<AuditStatus, string> = {
   COMPETITOR_ANALYSIS: "border-amber-200 bg-amber-50 text-amber-800",
   AI_ANALYSIS: "border-violet-200 bg-violet-50 text-violet-800",
   REPORT_READY: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  FAILED: "border-red-200 bg-red-50 text-red-800"
+  FAILED: "border-red-200 bg-red-50 text-red-800",
+  CANCELED: "border-slate-300 bg-slate-100 text-slate-700"
 };
 
 const activeStatuses: AuditStatus[] = [
   AuditStatus.QUEUED,
   AuditStatus.CRAWLING,
   AuditStatus.AUDITING,
+  AuditStatus.COMPETITOR_ANALYSIS,
   AuditStatus.AI_ANALYSIS
 ];
 
@@ -47,9 +50,9 @@ export default async function AuditsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 border-b border-line pb-5 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-normal text-ink">Audits</h1>
+          <h1 className="text-2xl font-semibold tracking-normal text-ink">Auditler</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted">
-            Create and track commerce site audit projects through the foundation workflow.
+            E-ticaret site auditlerini oluştur, takip et ve rapor hazır olduğunda incele.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -58,36 +61,36 @@ export default async function AuditsPage() {
             className="focus-ring inline-flex h-9 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-medium text-ink hover:bg-panel"
           >
             <RefreshCw aria-hidden="true" size={16} />
-            Refresh
+            Yenile
           </Link>
           <Link
             href="/audits/new"
             className="focus-ring inline-flex h-9 items-center gap-2 rounded-md bg-accent px-3 text-sm font-medium text-white hover:bg-[#0c6b5e]"
           >
             <Plus aria-hidden="true" size={16} />
-            New
+            Yeni
           </Link>
         </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Metric label="Total" value={audits.length} />
-        <Metric label="Active" value={activeCount} />
-        <Metric label="Ready" value={readyCount} />
+        <Metric label="Toplam" value={audits.length} />
+        <Metric label="Aktif" value={activeCount} />
+        <Metric label="Hazır" value={readyCount} />
       </div>
 
       <div className="overflow-hidden rounded-md border border-line bg-white">
         <div className="grid grid-cols-[1.2fr_130px_110px_150px] border-b border-line bg-panel px-4 py-3 text-xs font-semibold uppercase text-muted max-md:hidden">
-          <span>Website</span>
-          <span>Depth</span>
-          <span>Status</span>
-          <span>Created</span>
+          <span>Site</span>
+          <span>Kapsam</span>
+          <span>Durum</span>
+          <span>Oluşturulma</span>
         </div>
 
         {audits.length === 0 ? (
           <div className="px-4 py-12 text-center">
-            <p className="text-sm font-medium text-ink">No audits yet</p>
-            <p className="mt-1 text-sm text-muted">Start with a commerce website URL.</p>
+            <p className="text-sm font-medium text-ink">Henüz audit yok</p>
+            <p className="mt-1 text-sm text-muted">Bir e-ticaret sitesi URL'i ile başla.</p>
           </div>
         ) : (
           <div className="divide-y divide-line">
@@ -101,7 +104,7 @@ export default async function AuditsPage() {
                   <p className="truncate text-sm font-medium text-ink">{audit.brandName ?? audit.normalizedUrl}</p>
                   <p className="truncate text-xs text-muted">{audit.normalizedUrl}</p>
                 </div>
-                <div className="text-xs text-muted">{audit.depth}</div>
+                <div className="text-xs text-muted">{formatDepth(audit.depth)}</div>
                 <div>
                   <StatusBadge status={audit.status} />
                 </div>
@@ -135,8 +138,18 @@ function StatusBadge({ status }: { status: AuditStatus }) {
 }
 
 function formatDate(date: Date) {
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat("tr-TR", {
     dateStyle: "medium",
     timeStyle: "short"
   }).format(date);
+}
+
+function formatDepth(depth: string) {
+  const labels: Record<string, string> = {
+    QUICK: "Hızlı",
+    STANDARD: "Standart",
+    DEEP: "Derin"
+  };
+
+  return labels[depth] ?? depth;
 }

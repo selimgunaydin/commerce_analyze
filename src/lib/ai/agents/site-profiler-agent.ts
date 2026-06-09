@@ -48,8 +48,9 @@ function buildSiteProfilerPrompt(params: {
   };
 
   return [
-    "Create a SiteProfile JSON object for this ecommerce audit.",
-    "Use only this evidence. If evidence is weak, keep confidence low.",
+    "Bu e-ticaret auditi için SiteProfile JSON objesi oluştur.",
+    "Sadece bu kanıtları kullan. Kanıt zayıfsa confidence düşük kalsın.",
+    "JSON key ve enum değerlerini schema ile aynı tut; tüm açıklama/string değerlerini Türkçe yaz.",
     "INPUT_JSON:",
     stringifyForAIPrompt(payload)
   ].join("\n");

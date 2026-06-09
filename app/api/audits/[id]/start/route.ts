@@ -1,4 +1,5 @@
 import { AuditStatus } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/src/lib/db/prisma";
 import { getEnv } from "@/src/lib/config/env";
@@ -8,6 +9,14 @@ import { rateLimit } from "@/src/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const activeStatuses = new Set<AuditStatus>([
+  AuditStatus.QUEUED,
+  AuditStatus.CRAWLING,
+  AuditStatus.AUDITING,
+  AuditStatus.COMPETITOR_ANALYSIS,
+  AuditStatus.AI_ANALYSIS
+]);
 
 type RouteContext = {
   params: Promise<{
@@ -37,20 +46,33 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Audit project not found." }, { status: 404 });
     }
 
+    if (activeStatuses.has(auditProject.status) && auditProject.activeRunId) {
+      return NextResponse.json(
+        {
+          error: "Bu audit zaten çalışıyor. Yeni bir çalışma başlatmadan önce mevcut işlem bitmeli.",
+          status: auditProject.status
+        },
+        { status: 409 }
+      );
+    }
+
+    const runId = randomUUID();
     const queuedAudit = await prisma.auditProject.update({
       where: {
         id
       },
       data: {
         status: AuditStatus.QUEUED,
-        errorMessage: null
+        errorMessage: null,
+        activeRunId: runId
       }
     });
 
-    const job = await enqueueAuditProject(id);
+    const job = await enqueueAuditProject(id, runId);
 
     return NextResponse.json({
       auditProject: queuedAudit,
+      runId,
       jobId: job.id
     });
   } catch (error) {

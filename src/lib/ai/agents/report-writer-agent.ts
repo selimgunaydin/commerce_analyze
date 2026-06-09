@@ -22,9 +22,10 @@ function buildReportWriterPrompt(finalReportDraft: FinalAuditReport) {
   };
 
   return [
-    "Create a FinalAuditReport JSON object.",
-    "You may improve executiveSummary, topFindings, and competitorSummary wording, but do not add or remove opportunities.",
-    "Preserve all opportunity evidence, affectedPages, effort, impact, complexity, and acceptance criteria.",
+    "FinalAuditReport JSON objesi oluştur.",
+    "executiveSummary, topFindings ve competitorSummary anlatımını iyileştirebilirsin; fırsat ekleme veya çıkarma.",
+    "Tüm opportunity kanıtlarını, affectedPages alanlarını, efor/etki/karmaşıklık değerlerini ve kabul kriterlerini koru.",
+    "JSON key ve enum değerlerini schema ile aynı tut; tüm açıklama/string değerlerini Türkçe yaz.",
     "INPUT_JSON:",
     stringifyForAIPrompt(payload)
   ].join("\n");

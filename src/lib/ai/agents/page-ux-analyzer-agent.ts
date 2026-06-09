@@ -68,8 +68,9 @@ function buildPageUXAnalyzerPrompt(
   };
 
   return [
-    "Create a PageUXAnalysis JSON object for this ecommerce audit page.",
-    "Use only this evidence. Do not invent observations not grounded in the provided data.",
+    "Bu e-ticaret audit sayfası için PageUXAnalysis JSON objesi oluştur.",
+    "Sadece bu kanıtları kullan. Veride dayanağı olmayan gözlem uydurma.",
+    "JSON key ve enum değerlerini schema ile aynı tut; tüm açıklama/string değerlerini Türkçe yaz.",
     "INPUT_JSON:",
     stringifyForAIPrompt(payload)
   ].join("\n");

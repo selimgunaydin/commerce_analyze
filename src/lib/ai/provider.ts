@@ -117,18 +117,18 @@ export class LocalStructuredFallbackProvider implements AIProvider {
       const homepage = input.homepage as Record<string, unknown> | undefined;
       const title = typeof homepage?.title === "string" ? homepage.title : "";
       const brandNameInput = typeof input.brandNameInput === "string" && input.brandNameInput ? input.brandNameInput : null;
-      const industryInput = typeof input.industryInput === "string" && input.industryInput ? input.industryInput : "Unknown ecommerce";
+      const industryInput = typeof input.industryInput === "string" && input.industryInput ? input.industryInput : "Bilinmeyen e-ticaret";
 
       return schemaByName.SiteProfile.parse({
         brandName: brandNameInput ?? inferBrandName(title),
         likelyIndustry: industryInput,
         ecommerceType: inferEcommerceType(`${title} ${homepage?.visibleText ?? ""}`),
-        targetAudience: "Unknown ecommerce shoppers",
+        targetAudience: "Genel e-ticaret müşterileri",
         pricePositioning: "unknown",
         mainProductCategories: Array.isArray(homepage?.detectedCategories) ? homepage.detectedCategories.slice(0, 8) : [],
         businessModel: "unknown",
         confidence: 0.2,
-        reasoning: ["OPENAI_API_KEY is not configured; local structured fallback used."]
+        reasoning: ["AI sağlayıcısı doğrulanmış JSON üretemediği için yerel yapılandırılmış fallback kullanıldı."]
       }) as T;
     }
 
@@ -151,15 +151,15 @@ export class LocalStructuredFallbackProvider implements AIProvider {
         .slice(0, 8)
         .map((label) => ({
           area: label,
-          customerCurrentState: `Customer detector did not pass: ${label}`,
-          competitorObservation: `At least one competitor detector passed: ${label}`,
-          recommendation: `Review the competitor evidence and add a stronger ${label.toLowerCase()} pattern where it fits the customer experience.`,
+          customerCurrentState: `Müşteri sitesinde bu kontrol geçmedi: ${label}`,
+          competitorObservation: `En az bir rakipte bu kontrol geçti: ${label}`,
+          recommendation: `Rakip kanıtını inceleyip müşteri deneyimine uyduğu yerde "${label}" alanını güçlendirin.`,
           impact: "medium" as const,
-          evidence: [`Customer detector: ${label}=false`, `Competitor detector: ${label}=true`]
+          evidence: [`Müşteri kontrolü: ${label}=false`, `Rakip kontrolü: ${label}=true`]
         }));
 
       return schemaByName.CompetitorComparison.parse({
-        summary: "Local structured fallback comparison generated because no AI provider key is configured.",
+        summary: "AI sağlayıcısı doğrulanmış çıktı üretemediği için yerel yapılandırılmış rakip karşılaştırması oluşturuldu.",
         customerAdvantages: detectorLabels(customerDetectors, true).slice(0, 8),
         competitorAdvantages: Array.from(new Set(competitorPassed)).slice(0, 8),
         gaps
@@ -195,7 +195,7 @@ export class LocalStructuredFallbackProvider implements AIProvider {
 
     return schemaByName.PageUXAnalysis.parse({
       pageType,
-      summary: "Local structured fallback generated because no AI provider key is configured.",
+      summary: "AI sağlayıcısı doğrulanmış çıktı üretemediği için yerel yapılandırılmış sayfa analizi oluşturuldu.",
       strengths: passedDetectors,
       weaknesses: failedDetectors,
       missedOpportunities: failedDetectors,
@@ -333,8 +333,8 @@ function buildFallbackOpportunities(input: Record<string, unknown>) {
   const deduped = dedupeOpportunities(opportunities);
   const fillerEvidence =
     pages[0] && typeof pages[0].url === "string"
-      ? [`Crawled page evidence: ${getString(pages[0].pageType, "page")} ${pages[0].url}`]
-      : ["Audit evidence: generated after crawler, detector, technical, and AI analysis steps."];
+      ? [`Crawl edilen sayfa kanıtı: ${getString(pages[0].pageType, "sayfa")} ${pages[0].url}`]
+      : ["Audit kanıtı: crawler, detector, teknik audit ve AI analizi adımlarından üretildi."];
 
   while (deduped.length < 5) {
     deduped.push(fallbackOpportunity(deduped.length, fillerEvidence));
@@ -344,39 +344,39 @@ function buildFallbackOpportunities(input: Record<string, unknown>) {
 }
 
 function opportunityFromCompetitorGap(gap: Record<string, unknown>) {
-  const area = getString(gap.area, "Competitor gap");
+  const area = getString(gap.area, "Rakip karşılaştırma açığı");
   const impact = getImpact(gap.impact);
   const category = inferOpportunityCategory(area);
   const evidence = getStringArray(gap.evidence);
 
   return {
     title: titleForFinding(area, "home", true),
-    description: `${getString(gap.customerCurrentState, `Customer evidence is weaker for ${area}.`)} ${getString(
+    description: `${getString(gap.customerCurrentState, `Müşteri kanıtı "${area}" alanında zayıf.`)} ${getString(
       gap.competitorObservation,
-      `Competitor evidence shows the pattern for ${area}.`
+      `Rakip kanıtı "${area}" paterninin bulunduğunu gösteriyor.`
     )}`,
-    evidence: evidence.length > 0 ? evidence : [`Competitor comparison gap: ${area}`],
+    evidence: evidence.length > 0 ? evidence : [`Rakip karşılaştırma açığı: ${area}`],
     affectedPages: ["home"],
     category,
     priority: impact === "high" ? "high" : "medium",
     estimatedEffort: effortForFinding(area),
     expectedImpact: impact === "low" ? "medium" : impact,
     implementationComplexity: complexityForFinding(area),
-    suggestedImplementation: getString(gap.recommendation, `Implement the missing ${area.toLowerCase()} pattern on the homepage.`),
+    suggestedImplementation: getString(gap.recommendation, `Ana sayfada eksik olan "${area}" paternini uygulanabilir bir bileşen veya içerik düzeniyle tamamlayın.`),
     acceptanceCriteria: acceptanceCriteriaForFinding(area, "home"),
-    relatedCompetitorExamples: evidence.filter((item) => item.toLowerCase().includes("competitor")).slice(0, 4)
+    relatedCompetitorExamples: evidence.filter((item) => /competitor|rakip/i.test(item)).slice(0, 4)
   };
 }
 
 function opportunityFromDetector(detector: Record<string, unknown>, affectedPage: string) {
-  const label = getString(detector.label, getString(detector.key, "Detector issue"));
+  const label = getString(detector.label, getString(detector.key, "Detector bulgusu"));
   const severity = getString(detector.severity, "medium");
   const category = inferOpportunityCategory(label);
-  const evidence = [`${affectedPage.toUpperCase()} detector: ${getString(detector.key, label)}=false`, ...getStringArray(detector.evidence)];
+  const evidence = [`${affectedPage.toUpperCase()} kontrolü: ${getString(detector.key, label)}=false`, ...getStringArray(detector.evidence)];
 
   return {
     title: titleForFinding(label, affectedPage, false),
-    description: `${affectedPage.toUpperCase()} audit evidence shows this detector did not pass: ${label}. Convert the finding into a concrete page improvement.`,
+    description: `${affectedPage.toUpperCase()} audit kanıtı bu kontrolün geçmediğini gösteriyor: ${label}. Bulguyu somut bir sayfa iyileştirme işi olarak ele alın.`,
     evidence: evidence.slice(0, 8),
     affectedPages: [affectedPage],
     category,
@@ -391,13 +391,13 @@ function opportunityFromDetector(detector: Record<string, unknown>, affectedPage
 }
 
 function opportunityFromAccessibilityViolation(violation: Record<string, unknown>, affectedPage: string) {
-  const title = getString(violation.help, getString(violation.id, "Accessibility violation"));
+  const title = getString(violation.help, getString(violation.id, "Erişilebilirlik ihlali"));
   const impact = getString(violation.impact, "moderate");
-  const evidence = [`${affectedPage.toUpperCase()} axe violation: ${getString(violation.id, title)}`];
+  const evidence = [`${affectedPage.toUpperCase()} axe ihlali: ${getString(violation.id, title)}`];
 
   return {
-    title: `Fix accessibility issue: ${title}`,
-    description: `${affectedPage.toUpperCase()} accessibility audit found an axe violation that should be resolved with a targeted frontend fix.`,
+    title: `Erişilebilirlik sorununu düzelt: ${title}`,
+    description: `${affectedPage.toUpperCase()} erişilebilirlik auditi, hedefli bir frontend düzenlemesiyle çözülmesi gereken bir axe ihlali buldu.`,
     evidence,
     affectedPages: [affectedPage],
     category: "accessibility",
@@ -405,26 +405,26 @@ function opportunityFromAccessibilityViolation(violation: Record<string, unknown
     estimatedEffort: "1_day",
     expectedImpact: "high",
     implementationComplexity: "medium",
-    suggestedImplementation: `Update the affected ${affectedPage} markup so the axe violation "${title}" no longer appears.`,
+    suggestedImplementation: `${affectedPage} markup yapısını güncelleyerek "${title}" axe ihlalinin tekrar görünmemesini sağlayın.`,
     acceptanceCriteria: [
-      `The ${affectedPage} page no longer reports the axe violation "${getString(violation.id, title)}".`,
-      "Keyboard and screen reader friendly semantics are preserved.",
-      "The accessibility audit result is saved without this violation."
+      `${affectedPage} sayfası "${getString(violation.id, title)}" axe ihlalini artık raporlamıyor.`,
+      "Klavye ve ekran okuyucu dostu semantik yapı korunuyor.",
+      "Erişilebilirlik audit sonucu bu ihlal olmadan kaydediliyor."
     ],
     relatedCompetitorExamples: []
   };
 }
 
 function opportunityFromLighthouse(lighthouseOpportunity: Record<string, unknown>, affectedPage: string) {
-  const title = getString(lighthouseOpportunity.title, "Lighthouse performance opportunity");
+  const title = getString(lighthouseOpportunity.title, "Lighthouse performans fırsatı");
   const evidence = [
-    `${affectedPage.toUpperCase()} Lighthouse opportunity: ${getString(lighthouseOpportunity.id, title)}`,
+    `${affectedPage.toUpperCase()} Lighthouse fırsatı: ${getString(lighthouseOpportunity.id, title)}`,
     getString(lighthouseOpportunity.displayValue, "")
   ].filter(Boolean);
 
   return {
-    title: `Resolve Lighthouse opportunity: ${title}`,
-    description: `${affectedPage.toUpperCase()} Lighthouse results include a technical opportunity that can improve loading quality or frontend delivery.`,
+    title: `Lighthouse fırsatını çöz: ${title}`,
+    description: `${affectedPage.toUpperCase()} Lighthouse sonucu, yükleme kalitesini veya frontend teslimini iyileştirebilecek teknik bir fırsat içeriyor.`,
     evidence,
     affectedPages: [affectedPage],
     category: inferOpportunityCategory(title),
@@ -432,11 +432,11 @@ function opportunityFromLighthouse(lighthouseOpportunity: Record<string, unknown
     estimatedEffort: "1_day",
     expectedImpact: "medium",
     implementationComplexity: "medium",
-    suggestedImplementation: `Review the Lighthouse audit "${title}" and apply the smallest frontend or delivery change that removes the opportunity.`,
+    suggestedImplementation: `"${title}" Lighthouse bulgusunu inceleyip fırsatı kaldıracak en küçük frontend veya teslimat iyileştirmesini uygulayın.`,
     acceptanceCriteria: [
-      `The Lighthouse opportunity "${title}" no longer appears or its numeric value is materially reduced.`,
-      "The page still renders correctly on desktop and mobile.",
-      "No new accessibility violations are introduced."
+      `"${title}" Lighthouse fırsatı artık görünmüyor veya sayısal etkisi belirgin şekilde azalıyor.`,
+      "Sayfa desktop ve mobilde doğru render edilmeye devam ediyor.",
+      "Yeni erişilebilirlik ihlali oluşmuyor."
     ],
     relatedCompetitorExamples: []
   };
@@ -445,8 +445,8 @@ function opportunityFromLighthouse(lighthouseOpportunity: Record<string, unknown
 function opportunityFromAIFinding(finding: string, affectedPage: string) {
   return {
     title: titleForFinding(finding, affectedPage, false),
-    description: `${affectedPage.toUpperCase()} AI analysis marked this as a missed opportunity. Turn it into a scoped implementation task backed by detector evidence.`,
-    evidence: [`${affectedPage.toUpperCase()} AI missed opportunity: ${finding}`],
+    description: `${affectedPage.toUpperCase()} AI analizi bunu kaçırılmış fırsat olarak işaretledi. Detector kanıtıyla desteklenen kapsamlı bir uygulama işine dönüştürün.`,
+    evidence: [`${affectedPage.toUpperCase()} AI kaçırılmış fırsat: ${finding}`],
     affectedPages: [affectedPage],
     category: inferOpportunityCategory(finding),
     priority: "medium",
@@ -465,29 +465,29 @@ function opportunitiesFromScorecard(scorecard?: Record<string, unknown>) {
   }
 
   const scoreEntries = [
-    ["conversion", "conversion", "Improve the lowest-scoring conversion journey checks"],
-    ["ux", "ux", "Resolve priority UX detector failures"],
-    ["seo", "seo", "Fix SEO metadata and semantic structure gaps"],
-    ["accessibility", "accessibility", "Reduce accessibility risk on audited pages"],
-    ["performance", "performance", "Improve audited page performance opportunities"]
+    ["conversion", "conversion", "Düşük skorlu dönüşüm akışı kontrollerini iyileştir"],
+    ["ux", "ux", "Öncelikli UX detector bulgularını çöz"],
+    ["seo", "seo", "SEO metadata ve semantik yapı açıklarını düzelt"],
+    ["accessibility", "accessibility", "Audit edilen sayfalardaki erişilebilirlik riskini azalt"],
+    ["performance", "performance", "Audit edilen sayfalardaki performans fırsatlarını iyileştir"]
   ] as const;
 
   return scoreEntries
     .filter(([key]) => typeof scorecard[key] === "number" && (scorecard[key] as number) < 75)
     .map(([key, category, title]) => ({
       title,
-      description: `The deterministic scorecard shows ${key} below the target threshold. Group the related evidence into a scoped implementation task.`,
-      evidence: [`Scorecard ${key}: ${Math.round(scorecard[key] as number)}`],
+      description: `Deterministik skor kartı ${key} skorunun hedef eşiğin altında olduğunu gösteriyor. İlgili kanıtları kapsamı net bir uygulama işinde gruplayın.`,
+      evidence: [`Skor kartı ${key}: ${Math.round(scorecard[key] as number)}`],
       affectedPages: ["audit-wide"],
       category,
       priority: (scorecard[key] as number) < 40 ? "high" : "medium",
       estimatedEffort: key === "performance" ? "2_3_days" : "1_day",
       expectedImpact: (scorecard[key] as number) < 40 ? "high" : "medium",
       implementationComplexity: key === "performance" ? "medium" : "low",
-      suggestedImplementation: `Review failed ${key} evidence across audited pages and resolve the repeated checks first.`,
+      suggestedImplementation: `Audit edilen sayfalardaki başarısız ${key} kanıtlarını inceleyin ve önce tekrar eden kontrolleri çözün.`,
       acceptanceCriteria: [
-        `The ${key} score improves above the previous score after rerunning the audit.`,
-        "The implementation references the detector, Lighthouse, or accessibility evidence that justified the task."
+        `Audit tekrar çalıştırıldığında ${key} skoru önceki skora göre iyileşiyor.`,
+        "Uygulama işi, görevi gerekçelendiren detector, Lighthouse veya erişilebilirlik kanıtına referans veriyor."
       ],
       relatedCompetitorExamples: []
     }));
@@ -495,17 +495,17 @@ function opportunitiesFromScorecard(scorecard?: Record<string, unknown>) {
 
 function fallbackOpportunity(index: number, evidence: string[]) {
   const fallbackItems = [
-    ["Create an evidence-backed homepage remediation pass", "ux"],
-    ["Resolve top conversion detector failures", "conversion"],
-    ["Fix metadata and semantic content gaps", "seo"],
-    ["Clean up accessibility issues from the audit", "accessibility"],
-    ["Reduce frontend quality issues found during audit", "frontend"]
+    ["Kanıta dayalı ana sayfa iyileştirme turu yap", "ux"],
+    ["En önemli dönüşüm detector hatalarını çöz", "conversion"],
+    ["Metadata ve semantik içerik açıklarını düzelt", "seo"],
+    ["Audit erişilebilirlik sorunlarını temizle", "accessibility"],
+    ["Audit sırasında bulunan frontend kalite sorunlarını azalt", "frontend"]
   ] as const;
   const [title, category] = fallbackItems[index % fallbackItems.length];
 
   return {
     title,
-    description: "Generated as a fallback task from available audit evidence so the opportunity list remains implementation-ready.",
+    description: "Fırsat listesi uygulamaya hazır kalsın diye mevcut audit kanıtlarından fallback görev olarak üretildi.",
     evidence,
     affectedPages: ["audit-wide"],
     category,
@@ -513,10 +513,10 @@ function fallbackOpportunity(index: number, evidence: string[]) {
     estimatedEffort: "1_day",
     expectedImpact: "medium",
     implementationComplexity: "medium",
-    suggestedImplementation: "Review the referenced audit evidence and convert the highest-impact repeated issue into a scoped implementation change.",
+    suggestedImplementation: "Referans verilen audit kanıtını inceleyin ve en yüksek etkili tekrar eden sorunu kapsamı net bir uygulama değişikliğine dönüştürün.",
     acceptanceCriteria: [
-      "The referenced audit evidence is addressed by a concrete implementation change.",
-      "The audit can be rerun and the related finding is improved or removed."
+      "Referans verilen audit kanıtı somut bir uygulama değişikliğiyle ele alınıyor.",
+      "Audit tekrar çalıştırıldığında ilgili bulgu iyileşiyor veya kalkıyor."
     ],
     relatedCompetitorExamples: []
   };
@@ -543,82 +543,82 @@ function dedupeOpportunities(opportunities: Array<Record<string, unknown>>) {
 
 function titleForFinding(finding: string, affectedPage: string, competitorBacked: boolean) {
   const text = finding.toLowerCase();
-  const prefix = competitorBacked ? "Close competitor gap: " : "";
+  const prefix = competitorBacked ? "Rakip açığını kapat: " : "";
 
   if (text.includes("cta")) {
-    return `${prefix}Add a clear primary CTA to the ${affectedPage} page`;
+    return `${prefix}${affectedPage} sayfasına net bir ana CTA ekle`;
   }
 
-  if (text.includes("category shortcut")) {
-    return `${prefix}Add category shortcut links to the ${affectedPage} page`;
+  if (text.includes("category shortcut") || text.includes("kategori")) {
+    return `${prefix}${affectedPage} sayfasına kategori kısayolları ekle`;
   }
 
-  if (text.includes("search input")) {
-    return `${prefix}Add a visible search entry point to the ${affectedPage} page`;
+  if (text.includes("search input") || text.includes("arama")) {
+    return `${prefix}${affectedPage} sayfasına görünür arama girişi ekle`;
   }
 
-  if (text.includes("header navigation")) {
-    return `${prefix}Strengthen header navigation on the ${affectedPage} page`;
+  if (text.includes("header navigation") || text.includes("navigasyon")) {
+    return `${prefix}${affectedPage} sayfasında üst navigasyonu güçlendir`;
   }
 
-  if (text.includes("mobile menu")) {
-    return `${prefix}Add a reliable mobile menu signal to the ${affectedPage} page`;
+  if (text.includes("mobile menu") || text.includes("mobil menü")) {
+    return `${prefix}${affectedPage} sayfasına güvenilir mobil menü sinyali ekle`;
   }
 
-  if (text.includes("footer links")) {
-    return `${prefix}Add footer support and policy links to the ${affectedPage} page`;
+  if (text.includes("footer links") || text.includes("footer")) {
+    return `${prefix}${affectedPage} sayfasına footer destek ve politika linkleri ekle`;
   }
 
-  if (text.includes("meta description")) {
-    return `${prefix}Write a meta description for the ${affectedPage} page`;
+  if (text.includes("meta description") || text.includes("meta açıklama")) {
+    return `${prefix}${affectedPage} sayfası için meta açıklama yaz`;
   }
 
   if (text.includes("alt")) {
-    return `${prefix}Add missing image alt text on the ${affectedPage} page`;
+    return `${prefix}${affectedPage} sayfasında eksik görsel alt metinlerini tamamla`;
   }
 
-  if (text.includes("link") && text.includes("text")) {
-    return `${prefix}Fix empty or unclear link text on the ${affectedPage} page`;
+  if ((text.includes("link") && text.includes("text")) || text.includes("metinsiz link")) {
+    return `${prefix}${affectedPage} sayfasındaki boş veya belirsiz link metinlerini düzelt`;
   }
 
-  if (text.includes("add to cart")) {
-    return `${prefix}Improve add-to-cart visibility on the ${affectedPage} page`;
+  if (text.includes("add to cart") || text.includes("sepete")) {
+    return `${prefix}${affectedPage} sayfasında sepete ekle görünürlüğünü iyileştir`;
   }
 
-  return `${prefix}Resolve ${affectedPage} finding: ${finding}`;
+  return `${prefix}${affectedPage} bulgusunu çöz: ${finding}`;
 }
 
 function implementationForFinding(finding: string, affectedPage: string) {
   const text = finding.toLowerCase();
 
   if (text.includes("cta")) {
-    return `Add one visually prominent primary CTA near the main ${affectedPage} content and ensure its copy describes the next action.`;
+    return `${affectedPage} ana içeriğinin yakınına görsel olarak belirgin bir CTA ekleyin ve metnin bir sonraki aksiyonu açıkça anlattığını doğrulayın.`;
   }
 
-  if (text.includes("category")) {
-    return `Add a responsive category shortcut block with 6-8 high-value destinations on the ${affectedPage} page.`;
+  if (text.includes("category") || text.includes("kategori")) {
+    return `${affectedPage} sayfasına 6-8 yüksek değerli hedef içeren responsive kategori kısayol bloğu ekleyin.`;
   }
 
-  if (text.includes("search")) {
-    return `Expose a search field or search trigger in the ${affectedPage} header area and keep it reachable on mobile.`;
+  if (text.includes("search") || text.includes("arama")) {
+    return `${affectedPage} header alanında arama alanı veya arama tetikleyicisi gösterin ve mobilde erişilebilir tutun.`;
   }
 
-  if (text.includes("meta description")) {
-    return `Write a concise page-specific meta description and render it in the ${affectedPage} document head.`;
+  if (text.includes("meta description") || text.includes("meta açıklama")) {
+    return `${affectedPage} için sayfaya özel kısa bir meta açıklama yazın ve document head içinde render edin.`;
   }
 
   if (text.includes("alt")) {
-    return `Audit visible images on the ${affectedPage} page and add meaningful alt text or decorative empty alt attributes where appropriate.`;
+    return `${affectedPage} sayfasındaki görünür görselleri inceleyin; anlamlı görsellere alt metin, dekoratif görsellere boş alt niteliği ekleyin.`;
   }
 
-  return `Update the ${affectedPage} page implementation so the finding "${finding}" is directly addressed and can be verified on rerun.`;
+  return `${affectedPage} sayfası uygulamasını "${finding}" bulgusunu doğrudan ele alacak ve tekrar auditte doğrulanabilecek şekilde güncelleyin.`;
 }
 
 function acceptanceCriteriaForFinding(finding: string, affectedPage: string) {
   return [
-    `The ${affectedPage} page implementation directly addresses "${finding}".`,
-    "The related detector, Lighthouse, accessibility, or AI evidence improves on the next audit run.",
-    "The change is verified on desktop and mobile viewports."
+    `${affectedPage} sayfası uygulaması "${finding}" bulgusunu doğrudan ele alıyor.`,
+    "İlgili detector, Lighthouse, erişilebilirlik veya AI kanıtı bir sonraki auditte iyileşiyor.",
+    "Değişiklik desktop ve mobil görünümde doğrulanıyor."
   ];
 }
 

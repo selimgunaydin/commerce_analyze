@@ -25,23 +25,39 @@ export function getAuditQueue() {
   return queue;
 }
 
-export async function enqueueAuditProject(auditProjectId: string) {
+export async function enqueueAuditProject(auditProjectId: string, runId: string) {
   const auditQueue = getAuditQueue();
 
   return auditQueue.add(
     "audit.run",
-    { auditProjectId },
+    { auditProjectId, runId },
     {
-      attempts: 2,
-      backoff: {
-        type: "exponential",
-        delay: 1_000
-      },
-      jobId: `audit-project-${auditProjectId}-${Date.now()}`,
+      attempts: 1,
+      jobId: auditJobId(auditProjectId, runId),
       removeOnComplete: 100,
       removeOnFail: 100
     }
   );
+}
+
+export async function cancelQueuedAuditProject(auditProjectId: string, runId: string) {
+  const auditQueue = getAuditQueue();
+  const job = await auditQueue.getJob(auditJobId(auditProjectId, runId));
+
+  if (!job) {
+    return false;
+  }
+
+  try {
+    await job.remove();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function auditJobId(auditProjectId: string, runId: string) {
+  return `audit-project-${auditProjectId}-${runId}`;
 }
 
 function parseRedisUrl(redisUrl: string): ConnectionOptions {

@@ -177,10 +177,10 @@ test("Final report markdown builder keeps required headings", () => {
     }
   });
 
-  assert.match(markdown, /## Executive Summary/);
-  assert.match(markdown, /## Quick Wins/);
-  assert.match(markdown, /## Full Opportunity List/);
-  assert.match(markdown, /## Technical Appendix/);
+  assert.match(markdown, /## Yönetici Özeti/);
+  assert.match(markdown, /## Hızlı Kazanımlar/);
+  assert.match(markdown, /## Tüm Fırsatlar/);
+  assert.match(markdown, /## Teknik Ek/);
 });
 
 function extractedPage(overrides: Partial<ExtractedPageData> = {}): ExtractedPageData {

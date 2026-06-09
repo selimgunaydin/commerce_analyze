@@ -47,8 +47,9 @@ function buildCompetitorComparisonPrompt(params: {
   };
 
   return [
-    "Create a CompetitorComparison JSON object.",
-    "Compare only the customer homepage against manually supplied competitor homepage evidence.",
+    "CompetitorComparison JSON objesi oluştur.",
+    "Sadece müşteri ana sayfasını manuel sağlanan rakip ana sayfa kanıtlarıyla karşılaştır.",
+    "JSON key ve enum değerlerini schema ile aynı tut; tüm açıklama/string değerlerini Türkçe yaz.",
     "INPUT_JSON:",
     stringifyForAIPrompt(payload)
   ].join("\n");

@@ -87,43 +87,43 @@ export function preserveStoredOpportunities(report: FinalAuditReport, opportunit
 
 export function buildMarkdownReport(report: FinalAuditReport) {
   return [
-    "# AI Commerce Audit Report",
+    "# AI Commerce Audit Raporu",
     "",
-    "## Executive Summary",
+    "## Yönetici Özeti",
     "",
     report.executiveSummary,
     "",
-    "## Scorecard",
+    "## Skor Kartı",
     "",
     scorecardMarkdown(report.scorecard),
     "",
-    "## Top Findings",
+    "## Öne Çıkan Bulgular",
     "",
     listMarkdown(report.topFindings),
     "",
-    "## Competitor Summary",
+    "## Rakip Özeti",
     "",
     report.competitorSummary,
     "",
-    "## Quick Wins",
+    "## Hızlı Kazanımlar",
     "",
     opportunityMarkdown(report.quickWins),
     "",
-    "## Strategic Projects",
+    "## Stratejik Projeler",
     "",
     opportunityMarkdown(report.strategicProjects),
     "",
-    "## Full Opportunity List",
+    "## Tüm Fırsatlar",
     "",
     opportunityMarkdown(report.opportunities),
     "",
-    "## Technical Appendix",
+    "## Teknik Ek",
     "",
-    `Crawled pages: ${report.technicalAppendix.crawledPages.length}`,
+    `Crawl edilen sayfalar: ${report.technicalAppendix.crawledPages.length}`,
     "",
     listMarkdown(report.technicalAppendix.crawledPages),
     "",
-    `Screenshots: ${report.technicalAppendix.screenshots.length}`,
+    `Ekran görüntüleri: ${report.technicalAppendix.screenshots.length}`,
     "",
     listMarkdown(report.technicalAppendix.screenshots)
   ].join("\n");
@@ -169,7 +169,7 @@ export function toAuditOpportunity(opportunity: Opportunity): AuditOpportunity {
     estimatedEffort: normalizeEnum(opportunity.estimatedEffort, ["half_day", "1_day", "2_3_days", "1_week", "2_weeks_plus"]),
     expectedImpact: normalizeEnum(opportunity.expectedImpact, ["low", "medium", "high"]),
     implementationComplexity: normalizeEnum(opportunity.implementationComplexity, ["low", "medium", "high"]),
-    suggestedImplementation: opportunity.suggestedImplementation ?? "Implement the task according to the referenced evidence.",
+    suggestedImplementation: opportunity.suggestedImplementation ?? "Görevi referans verilen kanıta göre uygulayın.",
     acceptanceCriteria: getStringArray(opportunity.acceptanceCriteria),
     relatedCompetitorExamples: getStringArray(opportunity.relatedCompetitorExamples)
   };
@@ -184,21 +184,21 @@ function buildExecutiveSummary(params: {
   topFindings: string[];
 }) {
   const brand = params.project.brandName ?? params.project.normalizedUrl;
-  const firstFinding = params.topFindings[0] ?? "The audit found implementation opportunities backed by crawler and technical evidence.";
+  const firstFinding = params.topFindings[0] ?? "Audit, crawler ve teknik kanıtlarla desteklenen uygulama fırsatları buldu.";
 
-  return `${brand} finished with an overall audit score of ${Math.round(params.scorecard.overall)}. ${firstFinding} The report includes ${
+  return `${brand} genel audit skoru ${Math.round(params.scorecard.overall)} ile tamamlandı. ${firstFinding} Raporda ${
     params.opportunities.length
-  } implementation-ready opportunities, including ${params.quickWins.length} quick wins and ${
+  } uygulamaya hazır fırsat var; bunların ${params.quickWins.length} tanesi hızlı kazanım, ${
     params.strategicProjects.length
-  } strategic projects.`;
+  } tanesi stratejik proje.`;
 }
 
 function buildCompetitorSummary(competitorComparison: CompetitorComparison | null, competitorCount: number) {
   if (!competitorComparison || competitorCount === 0) {
-    return "No manual competitor comparison was available for this report.";
+    return "Bu rapor için manuel rakip karşılaştırması bulunmuyor.";
   }
 
-  return `${competitorComparison.summary} ${competitorComparison.gaps.length} evidence-backed competitor gaps were identified.`;
+  return `${competitorComparison.summary} Kanıta dayalı ${competitorComparison.gaps.length} rakip açığı tespit edildi.`;
 }
 
 function buildTopFindings(params: {
@@ -210,17 +210,17 @@ function buildTopFindings(params: {
 
   for (const [key, value] of Object.entries(params.scorecard)) {
     if (key !== "overall" && typeof value === "number" && value < 60) {
-      findings.push(`${formatToken(key)} score is below target at ${Math.round(value)}.`);
+      findings.push(`${formatToken(key)} skoru hedefin altında: ${Math.round(value)}.`);
     }
   }
 
   for (const gap of params.competitorComparison?.gaps ?? []) {
-    findings.push(`Competitor gap: ${gap.area}. ${gap.recommendation}`);
+    findings.push(`Rakip açığı: ${gap.area}. ${gap.recommendation}`);
   }
 
   for (const page of params.pages) {
     for (const detector of getDetectorResults(page.detectorResults).filter((item) => !item.passed && item.severity !== "info").slice(0, 3)) {
-      findings.push(`${page.pageType.toUpperCase()} detector failed: ${detector.label}.`);
+      findings.push(`${formatPageType(page.pageType)} sayfasında dikkat isteyen kontrol: ${detector.label}.`);
     }
   }
 
@@ -268,14 +268,14 @@ function getSiteProfile(value: unknown, project: AuditProject): SiteProfile {
 
   return {
     brandName: project.brandName,
-    likelyIndustry: project.industry ?? "Unknown ecommerce",
+    likelyIndustry: project.industry ?? "Bilinmeyen e-ticaret",
     ecommerceType: "other",
-    targetAudience: "Unknown ecommerce shoppers",
+    targetAudience: "Genel e-ticaret müşterileri",
     pricePositioning: "unknown",
     mainProductCategories: [],
     businessModel: "unknown",
     confidence: 0.1,
-    reasoning: ["Fallback site profile used because no validated AI site profile was available."]
+    reasoning: ["Doğrulanmış AI site profili bulunmadığı için fallback site profili kullanıldı."]
   };
 }
 
@@ -312,19 +312,19 @@ function getDetectorResults(value: unknown): Array<{ label: string; passed: bool
 
 function scorecardMarkdown(scorecard: AuditScorecard) {
   return [
-    `- Overall: ${Math.round(scorecard.overall)}`,
+    `- Genel: ${Math.round(scorecard.overall)}`,
     `- UX: ${Math.round(scorecard.ux)}`,
-    `- Conversion: ${Math.round(scorecard.conversion)}`,
-    `- Performance: ${Math.round(scorecard.performance)}`,
+    `- Dönüşüm: ${Math.round(scorecard.conversion)}`,
+    `- Performans: ${Math.round(scorecard.performance)}`,
     `- SEO: ${Math.round(scorecard.seo)}`,
-    `- Accessibility: ${Math.round(scorecard.accessibility)}`,
-    `- Competitor Positioning: ${Math.round(scorecard.competitorPositioning)}`
+    `- Erişilebilirlik: ${Math.round(scorecard.accessibility)}`,
+    `- Rakip Konumu: ${Math.round(scorecard.competitorPositioning)}`
   ].join("\n");
 }
 
 function opportunityMarkdown(opportunities: AuditOpportunity[]) {
   if (opportunities.length === 0) {
-    return "- None.";
+    return "- Yok.";
   }
 
   return opportunities
@@ -334,20 +334,20 @@ function opportunityMarkdown(opportunities: AuditOpportunity[]) {
         "",
         opportunity.description,
         "",
-        `- Category: ${formatToken(opportunity.category)}`,
-        `- Priority: ${formatToken(opportunity.priority)}`,
-        `- Effort: ${formatToken(opportunity.estimatedEffort)}`,
-        `- Impact: ${formatToken(opportunity.expectedImpact)}`,
-        `- Complexity: ${formatToken(opportunity.implementationComplexity)}`,
-        `- Evidence: ${opportunity.evidence.join(" | ")}`,
-        `- Acceptance Criteria: ${opportunity.acceptanceCriteria.join(" | ")}`
+        `- Kategori: ${formatToken(opportunity.category)}`,
+        `- Öncelik: ${formatToken(opportunity.priority)}`,
+        `- Efor: ${formatToken(opportunity.estimatedEffort)}`,
+        `- Etki: ${formatToken(opportunity.expectedImpact)}`,
+        `- Karmaşıklık: ${formatToken(opportunity.implementationComplexity)}`,
+        `- Kanıt: ${opportunity.evidence.join(" | ")}`,
+        `- Kabul Kriterleri: ${opportunity.acceptanceCriteria.join(" | ")}`
       ].join("\n")
     )
     .join("\n\n");
 }
 
 function listMarkdown(items: string[]) {
-  return items.length > 0 ? items.map((item) => `- ${item}`).join("\n") : "- None.";
+  return items.length > 0 ? items.map((item) => `- ${item}`).join("\n") : "- Yok.";
 }
 
 function getStringArray(value: unknown) {
@@ -359,11 +359,52 @@ function normalizeEnum<const T extends string>(value: string, allowed: readonly 
 }
 
 function formatToken(value: string) {
-  return value
-    .split("_")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+  const labels: Record<string, string> = {
+    overall: "Genel",
+    ux: "UX",
+    performance: "Performans",
+    seo: "SEO",
+    accessibility: "Erişilebilirlik",
+    conversion: "Dönüşüm",
+    competitorPositioning: "Rakip Konumu",
+    ui: "UI",
+    frontend: "Frontend",
+    analytics: "Analitik",
+    content: "İçerik",
+    merchandising: "Ürün Sunumu",
+    low: "Düşük",
+    medium: "Orta",
+    high: "Yüksek",
+    critical: "Kritik",
+    half_day: "Yarım Gün",
+    "1_day": "1 Gün",
+    "2_3_days": "2-3 Gün",
+    "1_week": "1 Hafta",
+    "2_weeks_plus": "2+ Hafta"
+  };
+
+  return (
+    labels[value] ??
+    value
+      .split("_")
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ")
+  );
+}
+
+function formatPageType(value: string) {
+  const labels: Record<string, string> = {
+    home: "Ana sayfa",
+    plp: "Listeleme",
+    pdp: "Ürün detay",
+    search: "Arama",
+    campaign: "Kampanya",
+    content: "İçerik",
+    unknown: "Bilinmeyen"
+  };
+
+  return labels[value] ?? value.toUpperCase();
 }
 
 function isString(value: unknown): value is string {
