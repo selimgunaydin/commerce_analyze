@@ -197,7 +197,7 @@ const worker = new Worker<AuditJobData>(
   },
   {
     connection: getRedisConnectionOptions(),
-    concurrency: 2
+    concurrency: 1
   }
 );
 
