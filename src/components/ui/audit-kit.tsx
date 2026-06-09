@@ -57,14 +57,22 @@ export function MetricCard({
 
 export function ScoreTile({ label, value }: { label: string; value: number | null }) {
   return (
-    <div className={`rounded-md border px-3 py-3 ${scoreClass(value)}`}>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-medium">{label}</p>
-        <p className="text-lg font-semibold">{typeof value === "number" ? Math.round(value) : "-"}</p>
+    <div className={`min-h-[104px] min-w-0 rounded-md border p-4 ${scoreClass(value)}`}>
+      <div className="flex items-start justify-between gap-4">
+        <p className="min-w-0 text-xs font-semibold leading-5">{label}</p>
+        <p className="shrink-0 text-2xl font-semibold tabular-nums">{typeof value === "number" ? Math.round(value) : "-"}</p>
       </div>
-      <div className="mt-3 h-1.5 rounded-full bg-white/70">
+      <div className="mt-5 h-2 rounded-full bg-white/75">
         <div className="h-full rounded-full bg-current" style={{ width: `${Math.max(0, Math.min(100, value ?? 0))}%` }} />
       </div>
+    </div>
+  );
+}
+
+export function ScoreGrid({ children }: { children: ReactNode }) {
+  return (
+    <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(148px, 1fr))" }}>
+      {children}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import type { AuditPage } from "@prisma/client";
 import type { ReactNode } from "react";
 import type { CompetitorComparison, FinalAuditReport } from "@/src/lib/ai/schemas";
-import { Badge, EmptyState, MetricCard, MiniStat, ScoreTile, SectionHeader, TextList, priorityTone } from "@/src/components/ui/audit-kit";
+import { Badge, EmptyState, MetricCard, MiniStat, ScoreGrid, ScoreTile, SectionHeader, TextList, priorityTone } from "@/src/components/ui/audit-kit";
 import {
   bestPracticesForOpportunity,
   failedDetectorLabels,
@@ -93,7 +93,7 @@ export function ScorecardSection({ finalReport }: { finalReport: FinalAuditRepor
   return (
     <section className="space-y-4">
       <SectionHeader title="Skor Kartı" description="Ajansın teklif önceliği için okunur: düşük skor satış fırsatı, yüksek skor korunacak varlık demektir." />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
+      <ScoreGrid>
         <ScoreTile label="Genel" value={finalReport.scorecard.overall} />
         <ScoreTile label="UX" value={finalReport.scorecard.ux} />
         <ScoreTile label="Dönüşüm" value={finalReport.scorecard.conversion} />
@@ -101,7 +101,7 @@ export function ScorecardSection({ finalReport }: { finalReport: FinalAuditRepor
         <ScoreTile label="SEO" value={finalReport.scorecard.seo} />
         <ScoreTile label="Erişilebilirlik" value={finalReport.scorecard.accessibility} />
         <ScoreTile label="Rakipler" value={finalReport.scorecard.competitorPositioning} />
-      </div>
+      </ScoreGrid>
     </section>
   );
 }

@@ -2,7 +2,7 @@ import { AuditStatus, type AuditPage, type CompetitorPage, type Opportunity } fr
 import { AlertTriangle, ArrowLeft, BarChart3, Camera, FileText, Gauge, PackageCheck, RefreshCw, Sparkles } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Badge, EmptyState, MetricCard, MiniStat, Notice, ScoreTile, SectionHeader, TextList, priorityTone } from "@/src/components/ui/audit-kit";
+import { Badge, EmptyState, MetricCard, MiniStat, Notice, ScoreGrid, ScoreTile, SectionHeader, TextList, priorityTone } from "@/src/components/ui/audit-kit";
 import type { DetectorResult } from "@/src/lib/audit/ecommerce-detectors";
 import {
   auditStatusOrder,
@@ -216,8 +216,8 @@ function ContextAndScoreSection({
   model: ReturnType<typeof buildAuditDetailModel>;
 }) {
   return (
-    <section className="grid gap-4 lg:grid-cols-[360px_1fr]">
-      <aside className="rounded-md border border-line bg-white p-4">
+    <section className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+      <aside className="rounded-md border border-line bg-white p-4 xl:self-start">
         <SectionHeader title="Audit Bağlamı" />
         <dl className="mt-4 space-y-3 text-sm">
           <Detail label="Marka" value={audit.brandName ?? "-"} />
@@ -230,7 +230,7 @@ function ContextAndScoreSection({
       <div className="space-y-4">
         <SectionHeader title="Skor Kartı" description="Satış önceliği için en düşük skorlar teklif kapsamını belirler." />
         {model.scorecard ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
+          <ScoreGrid>
             <ScoreTile label="Genel" value={model.scorecard.overall} />
             <ScoreTile label="UX" value={model.scorecard.ux} />
             <ScoreTile label="Dönüşüm" value={model.scorecard.conversion} />
@@ -238,7 +238,7 @@ function ContextAndScoreSection({
             <ScoreTile label="SEO" value={model.scorecard.seo} />
             <ScoreTile label="A11y" value={model.scorecard.accessibility} />
             <ScoreTile label="Rakip" value={model.scorecard.competitorPositioning} />
-          </div>
+          </ScoreGrid>
         ) : (
           <EmptyState>Skor kartı bekleniyor.</EmptyState>
         )}
