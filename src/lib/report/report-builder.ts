@@ -160,11 +160,23 @@ export function toAuditOpportunity(opportunity: Opportunity): AuditOpportunity {
       "seo",
       "accessibility",
       "conversion",
+      "retention",
+      "trust",
       "frontend",
       "analytics",
       "content",
       "merchandising"
     ]),
+    customerJourneyStage: normalizeEnum(opportunity.customerJourneyStage ?? "evaluation", [
+      "discovery",
+      "evaluation",
+      "purchase",
+      "post_purchase",
+      "retention"
+    ]),
+    customerProblem: opportunity.customerProblem ?? fallbackCustomerProblem(opportunity),
+    customerBenefit: opportunity.customerBenefit ?? fallbackCustomerBenefit(opportunity),
+    businessRationale: opportunity.businessRationale ?? fallbackBusinessRationale(opportunity),
     priority: normalizeEnum(opportunity.priority, ["low", "medium", "high", "critical"]),
     estimatedEffort: normalizeEnum(opportunity.estimatedEffort, ["half_day", "1_day", "2_3_days", "1_week", "2_weeks_plus"]),
     expectedImpact: normalizeEnum(opportunity.expectedImpact, ["low", "medium", "high"]),
@@ -335,6 +347,10 @@ function opportunityMarkdown(opportunities: AuditOpportunity[]) {
         opportunity.description,
         "",
         `- Kategori: ${formatToken(opportunity.category)}`,
+        `- Müşteri aşaması: ${formatToken(opportunity.customerJourneyStage)}`,
+        `- Müşteri problemi: ${opportunity.customerProblem}`,
+        `- Müşteri faydası: ${opportunity.customerBenefit}`,
+        `- İş gerekçesi: ${opportunity.businessRationale}`,
         `- Öncelik: ${formatToken(opportunity.priority)}`,
         `- Efor: ${formatToken(opportunity.estimatedEffort)}`,
         `- Etki: ${formatToken(opportunity.expectedImpact)}`,
@@ -358,6 +374,19 @@ function normalizeEnum<const T extends string>(value: string, allowed: readonly 
   return allowed.includes(value as T) ? (value as T) : allowed[0];
 }
 
+function fallbackCustomerProblem(opportunity: Opportunity) {
+  return `${opportunity.title} bulgusu müşteri yolculuğunda ek efor veya belirsizlik yaratabilir.`;
+}
+
+function fallbackCustomerBenefit(opportunity: Opportunity) {
+  return "Müşteri ilgili adımı daha kolay anlar ve alışveriş akışını daha az sürtünmeyle tamamlar.";
+}
+
+function fallbackBusinessRationale(opportunity: Opportunity) {
+  const category = formatToken(opportunity.category);
+  return `${category} alanındaki bu iyileştirme dönüşüm, güven veya operasyonel kalite üzerinde ölçülebilir etki yaratabilir.`;
+}
+
 function formatToken(value: string) {
   const labels: Record<string, string> = {
     overall: "Genel",
@@ -366,6 +395,8 @@ function formatToken(value: string) {
     seo: "SEO",
     accessibility: "Erişilebilirlik",
     conversion: "Dönüşüm",
+    retention: "Sadakat",
+    trust: "Güven",
     competitorPositioning: "Rakip Konumu",
     ui: "UI",
     frontend: "Frontend",
@@ -380,7 +411,11 @@ function formatToken(value: string) {
     "1_day": "1 Gün",
     "2_3_days": "2-3 Gün",
     "1_week": "1 Hafta",
-    "2_weeks_plus": "2+ Hafta"
+    "2_weeks_plus": "2+ Hafta",
+    discovery: "Keşif",
+    evaluation: "Değerlendirme",
+    purchase: "Satın Alma",
+    post_purchase: "Satın Alma Sonrası"
   };
 
   return (

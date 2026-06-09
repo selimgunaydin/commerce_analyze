@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   FileText,
   Gauge,
+  HeartHandshake,
   RefreshCw,
   ShieldAlert,
   Sparkles
@@ -244,6 +245,8 @@ export default async function AuditDetailPage({ params }: AuditDetailPageProps) 
 
       <PriorityIssuesSection issues={topIssues} status={audit.status} />
 
+      <CustomerLensSection opportunities={audit.opportunities} competitorComparison={competitorComparison} />
+
       <OpportunitySection opportunities={audit.opportunities} />
 
       <CompetitorComparisonSection competitorComparison={competitorComparison} hasCompetitors={audit.competitors.length > 0} />
@@ -411,6 +414,52 @@ function PriorityIssuesSection({ issues, status }: { issues: PriorityIssue[]; st
   );
 }
 
+function CustomerLensSection({
+  competitorComparison,
+  opportunities
+}: {
+  competitorComparison: CompetitorComparison | null;
+  opportunities: Opportunity[];
+}) {
+  const insights = buildCustomerLensInsights(opportunities, competitorComparison);
+
+  return (
+    <section className="space-y-3">
+      <SectionHeader
+        title="Müşteri Gözüyle İçgörüler"
+        description="Teknik bulguların müşteri davranışına etkisi: karar anı, güven, keşif kolaylığı ve tekrar satın alma motivasyonu."
+        count={insights.length}
+      />
+
+      {insights.length === 0 ? (
+        <EmptyState message="Müşteri perspektifi içgörüleri fırsat üretimi tamamlandıktan sonra görünür." />
+      ) : (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {insights.map((insight) => (
+            <article key={`${insight.title}-${insight.stage}`} className="rounded-md border border-line bg-white p-4">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 rounded-md border border-emerald-200 bg-emerald-50 p-2 text-emerald-800">
+                  <HeartHandshake aria-hidden="true" size={17} />
+                </span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge label={formatToken(insight.stage)} className="border-slate-200 bg-slate-50 text-slate-700" />
+                    {insight.priority ? <Badge label={formatToken(insight.priority)} className={priorityClass(insight.priority)} /> : null}
+                  </div>
+                  <h3 className="mt-2 break-words text-sm font-semibold text-ink">{insight.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted">{insight.problem}</p>
+                  <p className="mt-2 text-sm leading-6 text-ink">{insight.benefit}</p>
+                  <p className="mt-2 text-xs leading-5 text-muted">{insight.rationale}</p>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function OpportunitySection({ opportunities }: { opportunities: Opportunity[] }) {
   const quickWins = opportunities.filter(isQuickWinOpportunity);
   const strategicProjects = opportunities.filter(isStrategicProjectOpportunity);
@@ -448,6 +497,9 @@ function OpportunityCard({ opportunity }: { opportunity: Opportunity }) {
   const affectedPages = getStringArrayFromJson(opportunity.affectedPages);
   const acceptanceCriteria = getStringArrayFromJson(opportunity.acceptanceCriteria);
   const competitorExamples = getStringArrayFromJson(opportunity.relatedCompetitorExamples);
+  const customerProblem = opportunity.customerProblem ?? fallbackCustomerProblem(opportunity);
+  const customerBenefit = opportunity.customerBenefit ?? fallbackCustomerBenefit(opportunity);
+  const businessRationale = opportunity.businessRationale ?? fallbackBusinessRationale(opportunity);
 
   return (
     <article className="rounded-md border border-line bg-white p-4">
@@ -460,6 +512,29 @@ function OpportunityCard({ opportunity }: { opportunity: Opportunity }) {
           {isQuickWinOpportunity(opportunity) ? <Badge label="Hızlı kazanım" className="border-emerald-200 bg-emerald-50 text-emerald-900" /> : null}
           {isStrategicProjectOpportunity(opportunity) ? <Badge label="Stratejik" className="border-indigo-200 bg-indigo-50 text-indigo-900" /> : null}
           <Badge label={formatToken(opportunity.priority)} className={priorityClass(opportunity.priority)} />
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-md border border-emerald-100 bg-emerald-50/60 px-3 py-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold text-emerald-900">Müşteri gözüyle</p>
+            <p className="mt-2 text-sm leading-6 text-emerald-950">{customerProblem}</p>
+          </div>
+          <Badge
+            label={formatToken(opportunity.customerJourneyStage ?? "evaluation")}
+            className="border-emerald-200 bg-white text-emerald-900"
+          />
+        </div>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <div>
+            <p className="text-xs font-semibold text-emerald-900">Müşteri faydası</p>
+            <p className="mt-1 text-sm leading-6 text-emerald-950">{customerBenefit}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-emerald-900">İş gerekçesi</p>
+            <p className="mt-1 text-sm leading-6 text-emerald-950">{businessRationale}</p>
+          </div>
         </div>
       </div>
 
@@ -908,12 +983,14 @@ function EmptyState({ message }: { message: string }) {
 
 function TextList({ label, items }: { label: string; items: string[] }) {
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-xs font-semibold text-muted">{label}</p>
       {items.length > 0 ? (
-        <ul className="mt-2 space-y-1 text-sm leading-6 text-ink">
+        <ul className="mt-2 space-y-1 break-words text-sm leading-6 text-ink">
           {items.slice(0, 6).map((item) => (
-            <li key={item}>{item}</li>
+            <li key={item} className="[overflow-wrap:anywhere]">
+              {item}
+            </li>
           ))}
         </ul>
       ) : (
@@ -952,6 +1029,113 @@ function ScreenshotPreview({ label, storagePath }: { label: string; storagePath:
       )}
     </div>
   );
+}
+
+function buildCustomerLensInsights(opportunities: Opportunity[], competitorComparison: CompetitorComparison | null) {
+  const opportunityInsights = [...opportunities]
+    .sort(sortOpportunityByCustomerImportance)
+    .slice(0, 8)
+    .map((opportunity) => ({
+      title: opportunity.title,
+      stage: opportunity.customerJourneyStage ?? inferJourneyStage(`${opportunity.title} ${opportunity.description} ${opportunity.category}`),
+      problem: opportunity.customerProblem ?? fallbackCustomerProblem(opportunity),
+      benefit: opportunity.customerBenefit ?? fallbackCustomerBenefit(opportunity),
+      rationale: opportunity.businessRationale ?? fallbackBusinessRationale(opportunity),
+      priority: opportunity.priority
+    }));
+
+  const competitorInsights =
+    competitorComparison?.gaps.slice(0, 4).map((gap) => ({
+      title: `Rakip farkı: ${gap.area}`,
+      stage: inferJourneyStage(`${gap.area} ${gap.recommendation}`),
+      problem: gap.customerCurrentState,
+      benefit: gap.recommendation,
+      rationale: gap.competitorObservation,
+      priority: gap.impact
+    })) ?? [];
+
+  return dedupeCustomerInsights([...opportunityInsights, ...competitorInsights]).slice(0, 6);
+}
+
+function sortOpportunityByCustomerImportance(left: Opportunity, right: Opportunity) {
+  const leftCustomerWeight = left.customerProblem || left.customerBenefit ? 2 : 0;
+  const rightCustomerWeight = right.customerProblem || right.customerBenefit ? 2 : 0;
+  return rightCustomerWeight + priorityWeight(right.priority) - (leftCustomerWeight + priorityWeight(left.priority));
+}
+
+function dedupeCustomerInsights(
+  insights: Array<{
+    title: string;
+    stage: string;
+    problem: string;
+    benefit: string;
+    rationale: string;
+    priority?: string;
+  }>
+) {
+  const seen = new Set<string>();
+  const result: typeof insights = [];
+
+  for (const insight of insights) {
+    const key = `${insight.title}-${insight.problem}`.toLowerCase().replace(/\s+/g, " ").trim();
+
+    if (!key || seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    result.push(insight);
+  }
+
+  return result;
+}
+
+function inferJourneyStage(text: string) {
+  const normalized = normalizeText(text);
+
+  if (/(loyalty|reward|points|puan|sadakat|uyelik|club|kulup|bonus|cashback|retention)/.test(normalized)) {
+    return "retention";
+  }
+
+  if (/(sticky|sabit|cart|sepet|checkout|odeme|payment|taksit|purchase|satın alma|satin alma)/.test(normalized)) {
+    return "purchase";
+  }
+
+  if (/(support|destek|yardim|contact|iletisim|iade sureci|post_purchase)/.test(normalized)) {
+    return "post_purchase";
+  }
+
+  if (/(search|arama|category|kategori|filter|filtre|sort|sirala|navigation|navigasyon|discovery|kesif)/.test(normalized)) {
+    return "discovery";
+  }
+
+  return "evaluation";
+}
+
+function fallbackCustomerProblem(opportunity: Opportunity) {
+  return `${opportunity.title} bulgusu müşterinin alışveriş yolculuğunda ek efor veya belirsizlik yaratabilir.`;
+}
+
+function fallbackCustomerBenefit(opportunity: Opportunity) {
+  const stage = opportunity.customerJourneyStage ?? inferJourneyStage(`${opportunity.title} ${opportunity.category}`);
+
+  if (stage === "retention") {
+    return "Müşteri markaya geri dönmek için daha görünür bir avantaj görür.";
+  }
+
+  if (stage === "purchase") {
+    return "Müşteri karar verdiği anda aksiyona daha hızlı ulaşır.";
+  }
+
+  if (stage === "discovery") {
+    return "Müşteri aradığı ürün veya kategoriye daha kısa sürede ulaşır.";
+  }
+
+  return "Müşteri karar vermek için ihtiyaç duyduğu bilgiye daha kolay ulaşır.";
+}
+
+function fallbackBusinessRationale(opportunity: Opportunity) {
+  return `${formatToken(opportunity.category)} alanındaki iyileştirme dönüşüm, güven veya tekrar satın alma etkisi yaratabilir.`;
 }
 
 function buildPriorityIssues({
@@ -997,12 +1181,37 @@ function buildPriorityIssues({
   return dedupeIssues(issues).slice(0, 6);
 }
 
+function priorityWeight(priority: string) {
+  if (priority === "critical") {
+    return 4;
+  }
+
+  if (priority === "high") {
+    return 3;
+  }
+
+  if (priority === "medium") {
+    return 2;
+  }
+
+  return 1;
+}
+
 function detectorIssueTitle(detector: DetectorResult) {
   const labels: Record<string, string> = {
     homepage_has_hero: "Ana sayfada hero alanı ve ana aksiyon zayıf",
     homepage_has_h1: "Ana sayfada H1 başlığı eksik",
     homepage_has_category_shortcuts: "Kategori kısayolları yetersiz",
+    homepage_has_cta: "Ana sayfada ana aksiyon çağrısı zayıf",
+    homepage_has_search_input: "Ana sayfada arama alanı eksik",
+    homepage_has_trust_badge: "Ana sayfada güven unsuru zayıf",
+    homepage_has_loyalty_signal: "Ana sayfada sadakat/puan avantajı görünmüyor",
+    homepage_has_service_support_signal: "Müşteri destek sinyali zayıf",
+    homepage_has_delivery_return_value: "Kargo/iade avantajı yeterince görünür değil",
+    homepage_has_social_proof: "Yorum veya müşteri memnuniyeti sinyali zayıf",
+    homepage_has_header_navigation: "Ana sayfada üst navigasyon zayıf",
     homepage_has_mobile_menu_signal: "Mobil menü sinyali zayıf",
+    homepage_has_footer_links: "Footer destek linkleri zayıf",
     technical_has_h1: "H1 başlığı eksik",
     technical_has_meta_description: "Meta açıklama eksik",
     technical_images_have_alt: "Görsel alt metinleri eksik",
@@ -1015,13 +1224,32 @@ function detectorIssueTitle(detector: DetectorResult) {
     technical_form_fields_have_labels: "Form alanlarında label/placeholder eksikleri var",
     pdp_has_product_title: "Ürün başlığı eksik",
     pdp_has_price: "Ürün fiyatı algılanamadı",
+    pdp_has_add_to_cart: "Sepete ekleme aksiyonu zayıf",
+    pdp_has_variant_selector: "Varyant seçimi sinyali eksik",
     pdp_has_size_guide: "Beden/ölçü rehberi eksik",
+    pdp_has_stock_info: "Stok bilgisi görünür değil",
+    pdp_has_shipping_return_info: "Kargo/iade bilgisi eksik",
+    pdp_has_delivery_eta: "Teslimat zamanı beklentisi net değil",
+    pdp_has_payment_installment: "Ödeme veya taksit bilgisi görünür değil",
+    pdp_has_loyalty_value: "Ürün detayında sadakat/puan avantajı yok",
+    pdp_has_description: "Ürün açıklaması eksik",
+    pdp_has_image_gallery: "Ürün görsel galerisi zayıf",
+    pdp_has_review_rating: "Ürün yorumu veya puan sinyali yok",
+    pdp_has_wishlist: "Ürün detayında favoriye ekleme sinyali yok",
     pdp_has_related_products: "Benzer ürün önerileri eksik",
     pdp_has_sticky_add_to_cart: "Sabit sepete ekle sinyali yok",
     plp_has_product_grid: "Ürün grid yapısı zayıf",
+    plp_has_product_card_signal: "Ürün kartı sinyali zayıf",
     plp_has_price_text: "Listeleme fiyat bilgisi zayıf",
+    plp_has_discount_badge: "İndirim etiketi görünür değil",
     plp_has_filter: "Filtreleme sinyali eksik",
-    plp_has_sort: "Sıralama sinyali eksik"
+    plp_has_sort: "Sıralama sinyali eksik",
+    plp_has_quick_add: "Listelemede hızlı sepete ekleme sinyali yok",
+    plp_has_wishlist: "Listelemede favoriye ekleme sinyali yok",
+    plp_has_rating_review: "Listelemede yorum veya puan sinyali yok",
+    plp_has_variant_signal: "Listelemede varyant sinyali zayıf",
+    plp_has_pagination: "Sayfalama veya daha fazla yükleme sinyali zayıf",
+    plp_has_breadcrumb: "Breadcrumb sinyali eksik"
   };
 
   return labels[detector.key] ?? detector.label;
@@ -1054,6 +1282,17 @@ function formatEvidence(value: string) {
     .replace(/^Field:/, "Alan:")
     .replace(/^Button:/, "Buton:")
     .replace(/^Matched:/, "Eşleşen ifade:");
+}
+
+function normalizeText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/ı/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c");
 }
 
 function formatPageContext(pageType: string) {
@@ -1424,6 +1663,8 @@ function formatToken(value: string) {
     seo: "SEO",
     accessibility: "Erişilebilirlik",
     conversion: "Dönüşüm",
+    retention: "Sadakat",
+    trust: "Güven",
     frontend: "Frontend",
     analytics: "Analitik",
     content: "İçerik",
@@ -1436,7 +1677,11 @@ function formatToken(value: string) {
     "1_day": "1 gün",
     "2_3_days": "2-3 gün",
     "1_week": "1 hafta",
-    "2_weeks_plus": "2+ hafta"
+    "2_weeks_plus": "2+ hafta",
+    discovery: "Keşif",
+    evaluation: "Değerlendirme",
+    purchase: "Satın alma",
+    post_purchase: "Satın alma sonrası"
   };
 
   return labels[value] ?? value;

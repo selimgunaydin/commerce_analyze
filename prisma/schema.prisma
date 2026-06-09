@@ -120,6 +120,10 @@ model Opportunity {
   project                   AuditProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   title                     String
   description               String
+  customerJourneyStage      String?
+  customerProblem           String?
+  customerBenefit           String?
+  businessRationale         String?
   category                  String
   priority                  String
   estimatedEffort           String

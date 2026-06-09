@@ -64,7 +64,7 @@ test("Detector engine finds PDP add-to-cart and technical checks", () => {
   const detectors = runEcommerceDetectors({
     pageType: "pdp",
     extracted: extractedPage({
-      visibleText: "Sneaker $99 In stock Shipping and returns Product description",
+      visibleText: "Sneaker $99 In stock Shipping and returns Product description Sticky add to cart Earn loyalty points",
       headings: {
         h1: ["Sneaker"],
         h2: [],
@@ -80,6 +80,8 @@ test("Detector engine finds PDP add-to-cart and technical checks", () => {
   });
 
   assert.equal(detectors.find((detector) => detector.key === "pdp_has_add_to_cart")?.passed, true);
+  assert.equal(detectors.find((detector) => detector.key === "pdp_has_sticky_add_to_cart")?.passed, true);
+  assert.equal(detectors.find((detector) => detector.key === "pdp_has_loyalty_value")?.passed, true);
   assert.equal(detectors.find((detector) => detector.key === "technical_has_h1")?.passed, true);
 });
 
@@ -115,6 +117,10 @@ test("Opportunity schema validates roadmap task shape", () => {
     evidence: ["HOME detector: homepage_has_cta=false"],
     affectedPages: ["home"],
     category: "conversion",
+    customerJourneyStage: "purchase",
+    customerProblem: "Müşteri ana sayfada alışverişe nereden başlayacağını hızlı anlayamıyor.",
+    customerBenefit: "Müşteri ana aksiyona daha hızlı ulaşır.",
+    businessRationale: "Net CTA dönüşüm akışına giriş oranını artırabilir.",
     priority: "high",
     estimatedEffort: "1_day",
     expectedImpact: "high",
@@ -134,6 +140,10 @@ test("Final report markdown builder keeps required headings", () => {
     evidence: ["HOME detector: homepage_has_cta=false"],
     affectedPages: ["home"],
     category: "conversion",
+    customerJourneyStage: "purchase",
+    customerProblem: "Müşteri ana sayfada alışverişe nereden başlayacağını hızlı anlayamıyor.",
+    customerBenefit: "Müşteri ana aksiyona daha hızlı ulaşır.",
+    businessRationale: "Net CTA dönüşüm akışına giriş oranını artırabilir.",
     priority: "high",
     estimatedEffort: "1_day",
     expectedImpact: "high",

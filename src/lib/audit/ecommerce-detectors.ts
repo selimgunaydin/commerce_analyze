@@ -109,6 +109,34 @@ function getHomepageDetectors(context: DetectorContext): DetectorResult[] {
       severity: "low",
       evidence: matchEvidence(context.text, ["secure", "guvenli", "trusted", "free return", "iade", "ssl", "guarantee"])
     }),
+    booleanTextDetector(
+      context,
+      "homepage_has_loyalty_signal",
+      "Ana sayfada sadakat, puan veya üyelik avantajı var",
+      ["loyalty", "reward", "rewards", "points", "puan", "sadakat", "uyelik", "üyelik", "club", "kulup", "kulüp", "bonus", "cashback"],
+      "medium"
+    ),
+    booleanTextDetector(
+      context,
+      "homepage_has_service_support_signal",
+      "Ana sayfada müşteri destek veya canlı yardım sinyali var",
+      ["whatsapp", "live chat", "canli destek", "canlı destek", "musteri hizmetleri", "müşteri hizmetleri", "yardim", "yardım", "destek"],
+      "low"
+    ),
+    booleanTextDetector(
+      context,
+      "homepage_has_delivery_return_value",
+      "Ana sayfada kargo veya iade avantajı görünür",
+      ["free shipping", "ucretsiz kargo", "ücretsiz kargo", "same day", "ayni gun", "aynı gün", "return", "iade", "teslimat", "kargo"],
+      "medium"
+    ),
+    booleanTextDetector(
+      context,
+      "homepage_has_social_proof",
+      "Ana sayfada yorum, puan veya müşteri memnuniyeti sinyali var",
+      ["review", "rating", "yorum", "degerlendirme", "değerlendirme", "memnuniyet", "star", "yildiz", "yıldız"],
+      "low"
+    ),
     result({
       key: "homepage_has_header_navigation",
       label: "Ana sayfada üst navigasyon var",
@@ -165,6 +193,8 @@ function getPlpDetectors(context: DetectorContext): DetectorResult[] {
     booleanTextDetector(context, "plp_has_discount_badge", "Listeleme sayfasında indirim etiketi var", ["discount", "indirim", "sale", "%"], "medium"),
     booleanTextDetector(context, "plp_has_filter", "Listeleme sayfasında filtreleme var", ["filter", "filtre", "refine"], "medium"),
     booleanTextDetector(context, "plp_has_sort", "Listeleme sayfasında sıralama var", ["sort", "sirala", "sırala"], "medium"),
+    booleanTextDetector(context, "plp_has_quick_add", "Listeleme sayfasında hızlı sepete ekleme sinyali var", ["quick add", "quick cart", "hizli sepet", "hızlı sepet", "sepete ekle"], "medium"),
+    booleanTextDetector(context, "plp_has_wishlist", "Listeleme sayfasında favori/istek listesi sinyali var", ["wishlist", "favorite", "favourite", "favori", "istek listesi"], "low"),
     booleanTextDetector(context, "plp_has_rating_review", "Listeleme sayfasında yorum veya puan sinyali var", ["rating", "review", "yorum", "star", "yildiz", "yıldız"], "low"),
     booleanTextDetector(context, "plp_has_variant_signal", "Listeleme sayfasında renk/beden varyant sinyali var", ["color", "renk", "size", "beden", "variant"], "low"),
     booleanTextDetector(context, "plp_has_pagination", "Listeleme sayfasında sayfalama veya daha fazla yükleme var", ["pagination", "next", "previous", "load more", "daha fazla"], "low"),
@@ -218,6 +248,9 @@ function getPdpDetectors(context: DetectorContext): DetectorResult[] {
     booleanTextDetector(context, "pdp_has_size_guide", "Ürün detay sayfasında beden/ölçü rehberi var", ["size guide", "beden tablosu", "olcu tablosu", "ölçü tablosu"], "medium"),
     booleanTextDetector(context, "pdp_has_stock_info", "Ürün detay sayfasında stok bilgisi var", ["stock", "stok", "in stock", "out of stock", "tukendi", "tükendi"], "medium"),
     booleanTextDetector(context, "pdp_has_shipping_return_info", "Ürün detay sayfasında kargo/iade bilgisi var", ["shipping", "delivery", "return", "teslimat", "kargo", "iade"], "medium"),
+    booleanTextDetector(context, "pdp_has_delivery_eta", "Ürün detay sayfasında teslimat zamanı veya kargo beklentisi var", ["delivery date", "estimated delivery", "teslimat tarihi", "tahmini teslimat", "yarin kargoda", "yarın kargoda", "bugun kargoda", "bugün kargoda"], "medium"),
+    booleanTextDetector(context, "pdp_has_payment_installment", "Ürün detay sayfasında ödeme veya taksit bilgisi var", ["installment", "taksit", "payment", "odeme", "ödeme", "credit card", "kredi karti", "kredi kartı"], "low"),
+    booleanTextDetector(context, "pdp_has_loyalty_value", "Ürün detay sayfasında sadakat veya puan kazanımı var", ["loyalty", "reward", "points", "puan", "sadakat", "uyelik", "üyelik", "club", "kulup", "kulüp", "bonus", "cashback"], "medium"),
     booleanTextDetector(context, "pdp_has_description", "Ürün detay sayfasında ürün açıklaması var", ["description", "aciklama", "açıklama", "details", "detay"], "medium"),
     result({
       key: "pdp_has_image_gallery",
@@ -228,6 +261,7 @@ function getPdpDetectors(context: DetectorContext): DetectorResult[] {
       evidence: [`Görsel sayısı: ${context.extracted.images.length}`]
     }),
     booleanTextDetector(context, "pdp_has_review_rating", "Ürün detay sayfasında yorum veya puan var", ["rating", "review", "yorum", "star", "yildiz", "yıldız"], "low"),
+    booleanTextDetector(context, "pdp_has_wishlist", "Ürün detay sayfasında favori veya istek listesi sinyali var", ["wishlist", "favorite", "favourite", "favori", "istek listesi"], "low"),
     booleanTextDetector(context, "pdp_has_related_products", "Ürün detay sayfasında benzer ürünler var", ["related products", "benzer urunler", "benzer ürünler", "you may also like"], "low"),
     booleanTextDetector(context, "pdp_has_sticky_add_to_cart", "Ürün detay sayfasında sabit sepete ekle sinyali var", ["sticky add to cart", "sticky cart", "sabit sepet"], "medium")
   ];

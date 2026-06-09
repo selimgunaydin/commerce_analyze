@@ -44,26 +44,41 @@ const uxDetectorKeys = [
   "homepage_has_header_navigation",
   "homepage_has_search_input",
   "homepage_has_category_shortcuts",
+  "homepage_has_delivery_return_value",
+  "homepage_has_service_support_signal",
   "plp_has_filter",
   "plp_has_sort",
+  "plp_has_wishlist",
   "pdp_has_product_title",
   "pdp_has_price",
   "pdp_has_add_to_cart",
-  "pdp_has_shipping_return_info"
+  "pdp_has_shipping_return_info",
+  "pdp_has_delivery_eta",
+  "pdp_has_payment_installment",
+  "pdp_has_wishlist"
 ];
 
 const conversionDetectorKeys = [
   "homepage_has_cta",
+  "homepage_has_loyalty_signal",
+  "homepage_has_delivery_return_value",
+  "homepage_has_social_proof",
   "pdp_has_add_to_cart",
   "pdp_has_sticky_add_to_cart",
   "pdp_has_variant_selector",
   "pdp_has_size_guide",
   "pdp_has_stock_info",
   "pdp_has_shipping_return_info",
+  "pdp_has_delivery_eta",
+  "pdp_has_payment_installment",
+  "pdp_has_loyalty_value",
   "pdp_has_review_rating",
+  "pdp_has_wishlist",
   "pdp_has_related_products",
   "plp_has_product_grid",
-  "plp_has_product_card_signal"
+  "plp_has_product_card_signal",
+  "plp_has_quick_add",
+  "plp_has_wishlist"
 ];
 
 const seoDetectorKeys = [

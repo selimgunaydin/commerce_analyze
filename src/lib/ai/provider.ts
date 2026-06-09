@@ -192,13 +192,17 @@ export class LocalStructuredFallbackProvider implements AIProvider {
       .map((detector) => (detector as Record<string, unknown>).label)
       .filter((label): label is string => typeof label === "string")
       .slice(0, 6);
+    const missedCustomerOpportunities = failedDetectors
+      .map((finding) => customerProblemForFinding(finding, pageType))
+      .filter(Boolean)
+      .slice(0, 6);
 
     return schemaByName.PageUXAnalysis.parse({
       pageType,
       summary: "AI sağlayıcısı doğrulanmış çıktı üretemediği için yerel yapılandırılmış sayfa analizi oluşturuldu.",
       strengths: passedDetectors,
       weaknesses: failedDetectors,
-      missedOpportunities: failedDetectors,
+      missedOpportunities: missedCustomerOpportunities.length > 0 ? missedCustomerOpportunities : failedDetectors,
       detectedPatterns: passedDetectors,
       ecommerceFindings: {
         conversion: filterByWords(failedDetectors, ["cart", "cta", "conversion", "price", "variant", "stock"]),
@@ -355,6 +359,7 @@ function opportunityFromCompetitorGap(gap: Record<string, unknown>) {
       gap.competitorObservation,
       `Rakip kanıtı "${area}" paterninin bulunduğunu gösteriyor.`
     )}`,
+    ...customerLensForFinding(area, "home"),
     evidence: evidence.length > 0 ? evidence : [`Rakip karşılaştırma açığı: ${area}`],
     affectedPages: ["home"],
     category,
@@ -377,6 +382,7 @@ function opportunityFromDetector(detector: Record<string, unknown>, affectedPage
   return {
     title: titleForFinding(label, affectedPage, false),
     description: `${affectedPage.toUpperCase()} audit kanıtı bu kontrolün geçmediğini gösteriyor: ${label}. Bulguyu somut bir sayfa iyileştirme işi olarak ele alın.`,
+    ...customerLensForFinding(label, affectedPage),
     evidence: evidence.slice(0, 8),
     affectedPages: [affectedPage],
     category,
@@ -398,6 +404,7 @@ function opportunityFromAccessibilityViolation(violation: Record<string, unknown
   return {
     title: `Erişilebilirlik sorununu düzelt: ${title}`,
     description: `${affectedPage.toUpperCase()} erişilebilirlik auditi, hedefli bir frontend düzenlemesiyle çözülmesi gereken bir axe ihlali buldu.`,
+    ...customerLensForFinding(title, affectedPage),
     evidence,
     affectedPages: [affectedPage],
     category: "accessibility",
@@ -425,6 +432,7 @@ function opportunityFromLighthouse(lighthouseOpportunity: Record<string, unknown
   return {
     title: `Lighthouse fırsatını çöz: ${title}`,
     description: `${affectedPage.toUpperCase()} Lighthouse sonucu, yükleme kalitesini veya frontend teslimini iyileştirebilecek teknik bir fırsat içeriyor.`,
+    ...customerLensForFinding(title, affectedPage),
     evidence,
     affectedPages: [affectedPage],
     category: inferOpportunityCategory(title),
@@ -446,6 +454,7 @@ function opportunityFromAIFinding(finding: string, affectedPage: string) {
   return {
     title: titleForFinding(finding, affectedPage, false),
     description: `${affectedPage.toUpperCase()} AI analizi bunu kaçırılmış fırsat olarak işaretledi. Detector kanıtıyla desteklenen kapsamlı bir uygulama işine dönüştürün.`,
+    ...customerLensForFinding(finding, affectedPage),
     evidence: [`${affectedPage.toUpperCase()} AI kaçırılmış fırsat: ${finding}`],
     affectedPages: [affectedPage],
     category: inferOpportunityCategory(finding),
@@ -477,6 +486,7 @@ function opportunitiesFromScorecard(scorecard?: Record<string, unknown>) {
     .map(([key, category, title]) => ({
       title,
       description: `Deterministik skor kartı ${key} skorunun hedef eşiğin altında olduğunu gösteriyor. İlgili kanıtları kapsamı net bir uygulama işinde gruplayın.`,
+      ...customerLensForFinding(title, "audit-wide"),
       evidence: [`Skor kartı ${key}: ${Math.round(scorecard[key] as number)}`],
       affectedPages: ["audit-wide"],
       category,
@@ -506,6 +516,7 @@ function fallbackOpportunity(index: number, evidence: string[]) {
   return {
     title,
     description: "Fırsat listesi uygulamaya hazır kalsın diye mevcut audit kanıtlarından fallback görev olarak üretildi.",
+    ...customerLensForFinding(title, "audit-wide"),
     evidence,
     affectedPages: ["audit-wide"],
     category,
@@ -544,6 +555,14 @@ function dedupeOpportunities(opportunities: Array<Record<string, unknown>>) {
 function titleForFinding(finding: string, affectedPage: string, competitorBacked: boolean) {
   const text = finding.toLowerCase();
   const prefix = competitorBacked ? "Rakip açığını kapat: " : "";
+
+  if (/(loyalty|reward|points|puan|sadakat|üyelik|uyelik|club|kulüp|kulup|bonus|cashback)/.test(text)) {
+    return `${prefix}${affectedPage} sayfasında sadakat ve puan avantajını görünür yap`;
+  }
+
+  if (/(sticky|sabit).*(cart|sepet)|sticky cart|sticky add to cart|sabit sepet/.test(text)) {
+    return `${prefix}${affectedPage} sayfasında sabit sepete ekle akışı oluştur`;
+  }
 
   if (text.includes("cta")) {
     return `${prefix}${affectedPage} sayfasına net bir ana CTA ekle`;
@@ -585,11 +604,31 @@ function titleForFinding(finding: string, affectedPage: string, competitorBacked
     return `${prefix}${affectedPage} sayfasında sepete ekle görünürlüğünü iyileştir`;
   }
 
+  if (/(shipping|delivery|return|teslimat|kargo|iade)/.test(text)) {
+    return `${prefix}${affectedPage} sayfasında kargo ve iade güvenini güçlendir`;
+  }
+
+  if (/(review|rating|yorum|değerlendirme|degerlendirme|star|yıldız|yildiz)/.test(text)) {
+    return `${prefix}${affectedPage} sayfasında yorum ve sosyal kanıtı görünür yap`;
+  }
+
+  if (/(wishlist|favorite|favourite|favori|istek listesi)/.test(text)) {
+    return `${prefix}${affectedPage} sayfasında favori/istek listesi aksiyonu ekle`;
+  }
+
   return `${prefix}${affectedPage} bulgusunu çöz: ${finding}`;
 }
 
 function implementationForFinding(finding: string, affectedPage: string) {
   const text = finding.toLowerCase();
+
+  if (/(loyalty|reward|points|puan|sadakat|üyelik|uyelik|club|kulüp|kulup|bonus|cashback)/.test(text)) {
+    return `${affectedPage} sayfasında üyelik, puan kazanımı veya kulüp avantajını net bir mikro alanla gösterin; varsa hesap/kayıt akışına bağlayın.`;
+  }
+
+  if (/(sticky|sabit).*(cart|sepet)|sticky cart|sticky add to cart|sabit sepet/.test(text)) {
+    return `${affectedPage} ürün detayında mobil ve desktop için fiyat, varyant durumu ve sepete ekle aksiyonunu görünür tutan sticky CTA bileşeni ekleyin.`;
+  }
 
   if (text.includes("cta")) {
     return `${affectedPage} ana içeriğinin yakınına görsel olarak belirgin bir CTA ekleyin ve metnin bir sonraki aksiyonu açıkça anlattığını doğrulayın.`;
@@ -611,10 +650,40 @@ function implementationForFinding(finding: string, affectedPage: string) {
     return `${affectedPage} sayfasındaki görünür görselleri inceleyin; anlamlı görsellere alt metin, dekoratif görsellere boş alt niteliği ekleyin.`;
   }
 
+  if (/(shipping|delivery|return|teslimat|kargo|iade)/.test(text)) {
+    return `${affectedPage} sayfasında teslimat tarihi, ücretsiz kargo eşiği, iade süresi ve koşullarını satın alma kararına yakın konumda gösterin.`;
+  }
+
+  if (/(review|rating|yorum|değerlendirme|degerlendirme|star|yıldız|yildiz)/.test(text)) {
+    return `${affectedPage} sayfasına yorum, puan ortalaması veya müşteri memnuniyeti kanıtını ürün/karar alanına yakın ve erişilebilir şekilde ekleyin.`;
+  }
+
+  if (/(wishlist|favorite|favourite|favori|istek listesi)/.test(text)) {
+    return `${affectedPage} ürün kartı veya ürün detayında favoriye ekleme aksiyonunu görünür, erişilebilir ve hesap akışıyla uyumlu hale getirin.`;
+  }
+
   return `${affectedPage} sayfası uygulamasını "${finding}" bulgusunu doğrudan ele alacak ve tekrar auditte doğrulanabilecek şekilde güncelleyin.`;
 }
 
 function acceptanceCriteriaForFinding(finding: string, affectedPage: string) {
+  const text = finding.toLowerCase();
+
+  if (/(loyalty|reward|points|puan|sadakat|üyelik|uyelik|club|kulüp|kulup|bonus|cashback)/.test(text)) {
+    return [
+      `${affectedPage} sayfasında sadakat/puan avantajı müşteri tarafından açıkça görülebiliyor.`,
+      "Avantaj metni kayıt, giriş veya üyelik akışına doğru bağlantı veriyor.",
+      "Audit tekrarında ilgili sadakat veya üyelik sinyali kanıt olarak yakalanıyor."
+    ];
+  }
+
+  if (/(sticky|sabit).*(cart|sepet)|sticky cart|sticky add to cart|sabit sepet/.test(text)) {
+    return [
+      `${affectedPage} sayfasında sepete ekle aksiyonu scroll sırasında görünür kalıyor.`,
+      "Sticky CTA mobilde fiyat/varyant durumunu bozmayacak şekilde çalışıyor.",
+      "Audit tekrarında sabit sepete ekle sinyali yakalanıyor."
+    ];
+  }
+
   return [
     `${affectedPage} sayfası uygulaması "${finding}" bulgusunu doğrudan ele alıyor.`,
     "İlgili detector, Lighthouse, erişilebilirlik veya AI kanıtı bir sonraki auditte iyileşiyor.",
@@ -622,8 +691,145 @@ function acceptanceCriteriaForFinding(finding: string, affectedPage: string) {
   ];
 }
 
+function customerLensForFinding(finding: string, affectedPage: string) {
+  return {
+    customerJourneyStage: journeyStageForFinding(finding, affectedPage),
+    customerProblem: customerProblemForFinding(finding, affectedPage),
+    customerBenefit: customerBenefitForFinding(finding, affectedPage),
+    businessRationale: businessRationaleForFinding(finding, affectedPage)
+  };
+}
+
+function journeyStageForFinding(finding: string, affectedPage: string) {
+  const text = normalizedFinding(`${finding} ${affectedPage}`);
+
+  if (/(loyalty|reward|points|puan|sadakat|uyelik|club|kulup|bonus|cashback)/.test(text)) {
+    return "retention";
+  }
+
+  if (/(sticky|sabit|cart|sepet|checkout|odeme|payment|taksit|buy now|satın al|satin al)/.test(text)) {
+    return "purchase";
+  }
+
+  if (/(shipping|delivery|return|teslimat|kargo|iade)/.test(text)) {
+    return "evaluation";
+  }
+
+  if (/(search|arama|category|kategori|filter|filtre|sort|sirala|product grid|urun listesi|ürün listesi|navigation|navigasyon)/.test(text)) {
+    return "discovery";
+  }
+
+  if (/(review|rating|yorum|degerlendirme|star|yildiz|size|beden|variant|varyant|stock|stok|wishlist|favori)/.test(text)) {
+    return "evaluation";
+  }
+
+  if (/(support|destek|yardim|yardım|contact|iletisim|iletişim)/.test(text)) {
+    return "post_purchase";
+  }
+
+  return affectedPage === "home" || affectedPage === "plp" ? "discovery" : "evaluation";
+}
+
+function customerProblemForFinding(finding: string, affectedPage: string) {
+  const text = normalizedFinding(`${finding} ${affectedPage}`);
+
+  if (/(loyalty|reward|points|puan|sadakat|uyelik|club|kulup|bonus|cashback)/.test(text)) {
+    return "Müşteri alışverişin kendisine geri dönen bir avantaj sağlayıp sağlamadığını göremiyor; rakipte puan veya üyelik avantajı varsa tekrar satın alma motivasyonu zayıflar.";
+  }
+
+  if (/(sticky|sabit).*(cart|sepet)|sticky cart|sticky add to cart|sabit sepet/.test(text)) {
+    return "Müşteri ürün detayında karar verdiği anda sepete ekle aksiyonunu tekrar aramak zorunda kalabilir; bu özellikle mobilde satın alma sürtünmesi yaratır.";
+  }
+
+  if (/(cart|sepet|checkout|buy now|satın al|satin al)/.test(text)) {
+    return "Müşteri satın alma niyetindeyken bir sonraki aksiyon yeterince görünür olmadığı için karar akışı kesintiye uğrayabilir.";
+  }
+
+  if (/(shipping|delivery|return|teslimat|kargo|iade)/.test(text)) {
+    return "Müşteri teslimat veya iade koşullarını karar anında net göremezse sipariş riskini yüksek algılayabilir.";
+  }
+
+  if (/(review|rating|yorum|degerlendirme|star|yildiz|social proof|memnuniyet)/.test(text)) {
+    return "Müşteri ürünü veya markayı başkalarının deneyimiyle doğrulayamıyor; güven kararı daha fazla zihinsel efor gerektiriyor.";
+  }
+
+  if (/(wishlist|favorite|favourite|favori|istek listesi)/.test(text)) {
+    return "Müşteri beğendiği ürünü sonra dönmek üzere kolayca saklayamazsa değerlendirme süreci kopabilir.";
+  }
+
+  if (/(search|arama|category|kategori|filter|filtre|sort|sirala|navigation|navigasyon)/.test(text)) {
+    return "Müşteri aradığı ürüne hızlı ulaşmak için daha fazla gezinmek zorunda kalır; keşif süreci uzar ve terk riski artar.";
+  }
+
+  if (/(size|beden|variant|varyant|stock|stok)/.test(text)) {
+    return "Müşteri uygun seçenek, stok veya beden bilgisini net göremediğinde satın alma kararını erteleyebilir.";
+  }
+
+  if (/(accessib|alt|label|button|link text|landmark|erişilebilir|erisilebilir)/.test(text)) {
+    return "Klavye, ekran okuyucu veya yardımcı teknoloji kullanan müşteri temel aksiyonları güvenle tamamlayamayabilir.";
+  }
+
+  if (/(performance|lighthouse|blocking|paint|script|image|render|server response)/.test(text)) {
+    return "Müşteri sayfanın yüklenmesini veya etkileşime hazır hale gelmesini beklerken alışveriş niyetini kaybedebilir.";
+  }
+
+  if (/(meta|h1|seo|description|açıklama|aciklama)/.test(text)) {
+    return "Müşteri arama sonucu veya sayfa başlığından neyle karşılaşacağını yeterince hızlı anlayamayabilir.";
+  }
+
+  return "Müşteri yolculuğunda bu temas noktası yeterince net olmadığı için alışveriş deneyimi beklenenden daha fazla efor gerektirir.";
+}
+
+function customerBenefitForFinding(finding: string, affectedPage: string) {
+  const stage = journeyStageForFinding(finding, affectedPage);
+
+  if (stage === "retention") {
+    return "Müşteri markayla tekrar alışveriş yapmak için somut bir neden görür; üyelik veya puan avantajı daha anlaşılır hale gelir.";
+  }
+
+  if (stage === "purchase") {
+    return "Müşteri karar verdiği anda aksiyona daha hızlı ulaşır ve sepete ekleme adımı daha az sürtünmeyle tamamlanır.";
+  }
+
+  if (stage === "discovery") {
+    return "Müşteri aradığı ürünü veya kategoriyi daha kısa sürede bulur; keşif deneyimi daha kontrollü ve akıcı hissedilir.";
+  }
+
+  if (stage === "post_purchase") {
+    return "Müşteri destek, teslimat veya iade beklentisini daha rahat yönetir; satın alma sonrası belirsizlik azalır.";
+  }
+
+  return "Müşteri karar vermek için ihtiyaç duyduğu güven, bilgi ve karşılaştırma sinyallerine daha kolay ulaşır.";
+}
+
+function businessRationaleForFinding(finding: string, affectedPage: string) {
+  const stage = journeyStageForFinding(finding, affectedPage);
+
+  if (stage === "retention") {
+    return "Tekrar satın alma ve üyelik aktivasyonu güçlenir; rakipteki sadakat avantajı kaynaklı müşteri kaybı riski azalır.";
+  }
+
+  if (stage === "purchase") {
+    return "Satın alma niyetinin yüksek olduğu anda sürtünme azaldığı için sepete ekleme ve dönüşüm oranı üzerinde doğrudan etki beklenir.";
+  }
+
+  if (stage === "discovery") {
+    return "Ürün keşfi kolaylaştıkça kategori gezinmesi, ürün görüntüleme ve kampanya etkileşimi artabilir.";
+  }
+
+  if (stage === "post_purchase") {
+    return "Destek ihtiyacı ve iade belirsizliği azalır; güven algısı satın alma kararını destekler.";
+  }
+
+  return "Karar verme için gereken bilgi daha görünür olduğu için güven, ürün değerlendirme ve dönüşüm kalitesi iyileşir.";
+}
+
 function effortForFinding(finding: string) {
   const text = finding.toLowerCase();
+
+  if (/(loyalty|reward|points|puan|sadakat|üyelik|uyelik|club|kulüp|kulup|bonus|cashback)/.test(text)) {
+    return "1_week";
+  }
 
   if (/(meta description|alt|link text|button)/.test(text)) {
     return "half_day";
@@ -633,7 +839,7 @@ function effortForFinding(finding: string) {
     return "1_day";
   }
 
-  if (/(category|navigation|mobile menu|filter|sort|gallery|shipping|return)/.test(text)) {
+  if (/(category|navigation|mobile menu|filter|sort|gallery|shipping|return|delivery|wishlist|favorite|favori)/.test(text)) {
     return "2_3_days";
   }
 
@@ -647,6 +853,10 @@ function effortForFinding(finding: string) {
 function complexityForFinding(finding: string) {
   const text = finding.toLowerCase();
 
+  if (/(loyalty|reward|points|puan|sadakat|üyelik|uyelik|club|kulüp|kulup|bonus|cashback)/.test(text)) {
+    return "high";
+  }
+
   if (/(meta description|alt|link text|button|h1|footer)/.test(text)) {
     return "low";
   }
@@ -659,10 +869,18 @@ function complexityForFinding(finding: string) {
 }
 
 function inferOpportunityCategory(finding: string) {
-  const text = finding.toLowerCase();
+  const text = normalizedFinding(finding);
+
+  if (/(loyalty|reward|points|puan|sadakat|uyelik|club|kulup|bonus|cashback)/.test(text)) {
+    return "retention";
+  }
 
   if (/(cart|cta|price|conversion|stock|variant|checkout|sticky)/.test(text)) {
     return "conversion";
+  }
+
+  if (/(trust|secure|guven|güven|shipping|delivery|return|teslimat|kargo|iade|review|rating|yorum|degerlendirme|support|destek|yardim)/.test(text)) {
+    return "trust";
   }
 
   if (/(filter|sort|category|product discovery|merchandising)/.test(text)) {
@@ -694,6 +912,17 @@ function inferOpportunityCategory(finding: string) {
   }
 
   return "ux";
+}
+
+function normalizedFinding(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/ı/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c");
 }
 
 function getImpact(value: unknown): "low" | "medium" | "high" {

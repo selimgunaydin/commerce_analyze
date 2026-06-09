@@ -70,6 +70,10 @@ function buildPageUXAnalyzerPrompt(
   return [
     "Bu e-ticaret audit sayfası için PageUXAnalysis JSON objesi oluştur.",
     "Sadece bu kanıtları kullan. Veride dayanağı olmayan gözlem uydurma.",
+    "Zayıf alanları ve kaçırılmış fırsatları müşteri yolculuğu dilinde yaz: keşif, değerlendirme, satın alma, teslimat/iade güveni ve tekrar satın alma.",
+    "PDP için sticky sepete ekle, ürün varyantı, beden rehberi, teslimat/iade, yorum/puan ve benzer ürün sinyallerini müşteri davranışı açısından yorumla.",
+    "PLP için filtre, sıralama, hızlı sepet, favori ve ürün keşfi kolaylığını değerlendir.",
+    "Ana sayfa için sadakat/puan/kulüp, arama, kategori kısayolu, kampanya, güven ve destek sinyallerini değerlendir.",
     "JSON key ve enum değerlerini schema ile aynı tut; tüm açıklama/string değerlerini Türkçe yaz.",
     "INPUT_JSON:",
     stringifyForAIPrompt(payload)
