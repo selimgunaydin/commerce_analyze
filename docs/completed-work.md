@@ -421,6 +421,7 @@ Date: 2026-06-09
   - customer screenshots
   - competitor screenshots
 - Worker idempotency improved for reruns.
+- Technical audit partial failure handling now records Lighthouse and accessibility results independently if either side unexpectedly rejects.
 - Per-page AI analysis failures now persist error JSON and do not fail the whole audit.
 - Added AI input/cost guard helper:
   - max prompt chars

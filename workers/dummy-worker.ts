@@ -11,6 +11,7 @@ import { isInternalUrl } from "@/src/lib/utils/url-normalizer";
 import { runEcommerceDetectors } from "@/src/lib/audit/ecommerce-detectors";
 import { runAccessibilityAudit } from "@/src/lib/audit/accessibility-runner";
 import { runLighthouseAudit } from "@/src/lib/audit/lighthouse-runner";
+import { technicalAuditError } from "@/src/lib/audit/technical-audit-normalizer";
 import { calculateAuditScorecard, calculatePageScorecard } from "@/src/lib/audit/scoring";
 import { getDefaultAIProvider, LocalStructuredFallbackProvider, type AIProvider } from "@/src/lib/ai/provider";
 import { runSiteProfilerAgent } from "@/src/lib/ai/agents/site-profiler-agent";
@@ -426,11 +427,13 @@ async function saveCompetitorPage(competitorId: string, crawledPage: CrawledPage
   };
 }
 
-function runTechnicalAudits(url: string) {
-  return Promise.all([runLighthouseAudit(url), runAccessibilityAudit(url)]).then(([lighthouse, accessibility]) => ({
-    lighthouse,
-    accessibility
-  }));
+async function runTechnicalAudits(url: string) {
+  const [lighthouse, accessibility] = await Promise.allSettled([runLighthouseAudit(url), runAccessibilityAudit(url)]);
+
+  return {
+    lighthouse: lighthouse.status === "fulfilled" ? lighthouse.value : technicalAuditError("lighthouse", lighthouse.reason),
+    accessibility: accessibility.status === "fulfilled" ? accessibility.value : technicalAuditError("accessibility", accessibility.reason)
+  };
 }
 
 async function createDeterministicReport(auditProjectId: string) {
