@@ -14,7 +14,7 @@ import { runLighthouseAudit } from "@/src/lib/audit/lighthouse-runner";
 import { technicalAuditError } from "@/src/lib/audit/technical-audit-normalizer";
 import type { ExtractedPageData } from "@/src/lib/audit/types";
 import { calculateAuditScorecard, calculatePageScorecard } from "@/src/lib/audit/scoring";
-import { getDefaultAIProvider, LocalStructuredFallbackProvider, type AIProvider } from "@/src/lib/ai/provider";
+import { formatAIProviderError, getDefaultAIProvider, LocalStructuredFallbackProvider, type AIProvider } from "@/src/lib/ai/provider";
 import { runSiteProfilerAgent } from "@/src/lib/ai/agents/site-profiler-agent";
 import { runPageUXAnalyzerAgent } from "@/src/lib/ai/agents/page-ux-analyzer-agent";
 import { runCompetitorComparisonAgent } from "@/src/lib/ai/agents/competitor-comparison-agent";
@@ -766,6 +766,9 @@ async function runCoreAIAgents(auditProjectId: string, runId: string) {
   if (homepage) {
     try {
       const siteProfile = await withFallbackProvider({
+        agentName: "site-profiler",
+        auditProjectId,
+        runId,
         provider,
         fallbackProvider,
         run: (activeProvider) =>
@@ -787,7 +790,7 @@ async function runCoreAIAgents(auditProjectId: string, runId: string) {
       logger.warn("Site profile AI analysis failed; continuing with fallback report inputs.", {
         auditProjectId,
         runId,
-        error: error instanceof Error ? error.message : error
+        error: formatAIProviderError(error)
       });
     }
   }
@@ -795,6 +798,14 @@ async function runCoreAIAgents(auditProjectId: string, runId: string) {
   for (const page of project.pages) {
     try {
       const aiAnalysis = await withFallbackProvider({
+        agentName: "page-ux-analyzer",
+        auditProjectId,
+        runId,
+        metadata: {
+          auditPageId: page.id,
+          pageType: page.pageType,
+          url: page.url
+        },
         provider,
         fallbackProvider,
         run: (activeProvider) =>
@@ -829,7 +840,7 @@ async function runCoreAIAgents(auditProjectId: string, runId: string) {
           aiAnalysis: toJson({
             error: {
               source: "page-ux-ai",
-              message: error instanceof Error ? error.message : String(error)
+              message: formatAIProviderError(error)
             }
           })
         }
@@ -839,7 +850,7 @@ async function runCoreAIAgents(auditProjectId: string, runId: string) {
         auditProjectId,
         runId,
         auditPageId: page.id,
-        error: error instanceof Error ? error.message : error
+        error: formatAIProviderError(error)
       });
     }
   }
@@ -896,6 +907,12 @@ async function runCompetitorComparison(auditProjectId: string, runId: string) {
   const provider = getDefaultAIProvider();
   const fallbackProvider = new LocalStructuredFallbackProvider();
   const competitorComparison = await withFallbackProvider({
+    agentName: "competitor-comparison",
+    auditProjectId,
+    runId,
+    metadata: {
+      competitorCount: project.competitors.length
+    },
     provider,
     fallbackProvider,
     run: (activeProvider) =>
@@ -973,6 +990,12 @@ async function runOpportunityGeneration(auditProjectId: string, runId: string) {
   const provider = getDefaultAIProvider();
   const fallbackProvider = new LocalStructuredFallbackProvider();
   const generation = await withFallbackProvider({
+    agentName: "opportunity-generator",
+    auditProjectId,
+    runId,
+    metadata: {
+      pageCount: project.pages.length
+    },
     provider,
     fallbackProvider,
     run: (activeProvider) =>
@@ -1056,6 +1079,12 @@ async function runFinalReportWriting(auditProjectId: string, runId: string) {
   const provider = getDefaultAIProvider();
   const fallbackProvider = new LocalStructuredFallbackProvider();
   const generatedReport = await withFallbackProvider({
+    agentName: "report-writer",
+    auditProjectId,
+    runId,
+    metadata: {
+      opportunityCount: project.opportunities.length
+    },
     provider,
     fallbackProvider,
     run: (activeProvider) =>
@@ -1147,6 +1176,10 @@ function isStrategicProject(opportunity: AuditOpportunity) {
 }
 
 async function withFallbackProvider<T>(params: {
+  agentName: string;
+  auditProjectId: string;
+  runId: string;
+  metadata?: Record<string, unknown>;
   provider: AIProvider;
   fallbackProvider: AIProvider;
   run: (provider: AIProvider) => Promise<T>;
@@ -1155,7 +1188,11 @@ async function withFallbackProvider<T>(params: {
     return await params.run(params.provider);
   } catch (error) {
     logger.warn("AI provider failed; using local structured fallback.", {
-      error: error instanceof Error ? error.message : error
+      agentName: params.agentName,
+      auditProjectId: params.auditProjectId,
+      runId: params.runId,
+      error: formatAIProviderError(error),
+      ...params.metadata
     });
 
     return params.run(params.fallbackProvider);

@@ -16,6 +16,7 @@ export function parseJSONFromModelOutput(output: string): unknown {
 
 export function buildRepairPrompt(params: {
   schemaName: string;
+  expectedShape?: string;
   invalidOutput: string;
   validationError: string;
 }) {
@@ -23,10 +24,15 @@ export function buildRepairPrompt(params: {
     `Repair this ${params.schemaName} JSON output.`,
     "Return only valid JSON. Do not include markdown. Do not include commentary.",
     "Preserve the original meaning where possible.",
+    "Missing array fields must be returned as empty arrays, not omitted.",
+    "If an array is too long, keep the strongest evidence-backed items and remove the rest.",
+    params.expectedShape ? `Expected shape: ${params.expectedShape}` : null,
     `Validation error: ${params.validationError}`,
     "Invalid output:",
     params.invalidOutput
-  ].join("\n");
+  ]
+    .filter((line): line is string => typeof line === "string")
+    .join("\n");
 }
 
 function extractLikelyJson(output: string) {

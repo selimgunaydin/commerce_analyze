@@ -1,6 +1,7 @@
 import { getEnv } from "@/src/lib/config/env";
+import { z } from "zod";
 import { buildRepairPrompt, parseJSONFromModelOutput } from "./json-repair";
-import { schemaByName, type SchemaName } from "./schemas";
+import { schemaByName, schemaRepairGuides, type SchemaName } from "./schemas";
 
 export interface AIProvider {
   generateJSON<T>(params: {
@@ -33,7 +34,7 @@ export class OpenAICompatibleProvider implements AIProvider {
     }
 
     const maxRetries = params.maxRetries ?? 2;
-    let prompt = params.prompt;
+    let prompt = appendSchemaContract(params.prompt, params.schemaName);
     let lastError: unknown = null;
 
     for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
@@ -44,18 +45,19 @@ export class OpenAICompatibleProvider implements AIProvider {
 
       try {
         const parsed = parseJSONFromModelOutput(output);
-        return schemaByName[params.schemaName].parse(parsed) as T;
+        return schemaByName[params.schemaName].parse(normalizeParsedOutput(params.schemaName, parsed)) as T;
       } catch (error) {
         lastError = error;
         prompt = buildRepairPrompt({
           schemaName: params.schemaName,
+          expectedShape: schemaRepairGuides[params.schemaName],
           invalidOutput: output,
-          validationError: error instanceof Error ? error.message : String(error)
+          validationError: formatAIProviderError(error)
         });
       }
     }
 
-    throw lastError instanceof Error ? lastError : new Error("AI output validation failed.");
+    throw new Error(`AI output validation failed for ${params.schemaName}: ${formatAIProviderError(lastError)}`);
   }
 
   private async generateText(params: { system: string; prompt: string }) {
@@ -75,6 +77,7 @@ export class OpenAICompatibleProvider implements AIProvider {
           response_format: {
             type: "json_object"
           },
+          temperature: 0.1,
           messages: [
             {
               role: "system",
@@ -101,6 +104,12 @@ export class OpenAICompatibleProvider implements AIProvider {
       }
 
       return content;
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw new Error(`AI provider timed out after ${env.AI_TIMEOUT_MS}ms.`);
+      }
+
+      throw error;
     } finally {
       clearTimeout(timeout);
     }
@@ -225,6 +234,62 @@ export class LocalStructuredFallbackProvider implements AIProvider {
 
 export function getDefaultAIProvider(): AIProvider {
   return getEnv().OPENAI_API_KEY ? new OpenAICompatibleProvider() : new LocalStructuredFallbackProvider();
+}
+
+export function formatAIProviderError(error: unknown) {
+  if (error instanceof z.ZodError) {
+    return error.issues
+      .slice(0, 10)
+      .map((issue) => `${issue.path.length > 0 ? issue.path.join(".") : "(root)"}: ${issue.message}`)
+      .join("; ");
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
+function normalizeParsedOutput(schemaName: SchemaName, parsed: unknown) {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return parsed;
+  }
+
+  const candidate = parsed as Record<string, unknown>;
+
+  if (schemaName === "PageUXAnalysis") {
+    return {
+      ...candidate,
+      ecommerceFindings: ensureObject(candidate.ecommerceFindings),
+      technicalFindings: ensureObject(candidate.technicalFindings)
+    };
+  }
+
+  return candidate;
+}
+
+function appendSchemaContract(prompt: string, schemaName: SchemaName) {
+  return [
+    prompt,
+    "OUTPUT_CONTRACT:",
+    schemaRepairGuides[schemaName],
+    "Return every required key. Use [] for empty arrays. Do not omit nested objects."
+  ].join("\n");
+}
+
+function ensureObject(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function isAbortError(error: unknown) {
+  return (
+    Boolean(error) &&
+    typeof error === "object" &&
+    ((error as { name?: unknown }).name === "AbortError" ||
+      (typeof (error as { message?: unknown }).message === "string" &&
+        (error as { message: string }).message.toLowerCase().includes("aborted")))
+  );
 }
 
 function extractInputJSON(prompt: string) {
